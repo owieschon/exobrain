@@ -143,8 +143,6 @@ LARGE_MODEL = os.environ.get("EXOBRAIN_LARGE_MODEL", "claude-opus-4-8")
 # available, so every caller can treat None as "skip this step".
 # ---------------------------------------------------------------------------
 
-ANTHROPIC_MODEL = SMALL_MODEL  # used by call_anthropic below
-
 
 def get_api_key() -> Optional[str]:
     """Return the Anthropic API key from the ANTHROPIC_API_KEY env var, falling
@@ -227,7 +225,7 @@ def call_anthropic(
 
     payload = json.dumps(
         {
-            "model": ANTHROPIC_MODEL,
+            "model": SMALL_MODEL,
             "max_tokens": max_tokens,
             "messages": [{"role": "user", "content": prompt}],
         }
@@ -249,13 +247,13 @@ def call_anthropic(
             data = json.loads(resp.read())
     except Exception as e:
         log.warning("%s: %s", error_prefix.strip(), e)
-        trace_llm_call(step, ANTHROPIC_MODEL, None,
+        trace_llm_call(step, SMALL_MODEL, None,
                        (time.perf_counter() - start) * 1000, f"error:{type(e).__name__}")
         return None
 
     latency_ms = (time.perf_counter() - start) * 1000
     text = next((b["text"] for b in data.get("content", []) if b.get("type") == "text"), None)
-    trace_llm_call(step, ANTHROPIC_MODEL, data.get("usage"), latency_ms,
+    trace_llm_call(step, SMALL_MODEL, data.get("usage"), latency_ms,
                    "ok" if text is not None else "empty")
     return text
 

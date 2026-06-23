@@ -831,6 +831,21 @@ def write_pending_ingest(items: list):
 # Draft discovery
 # ---------------------------------------------------------------------------
 
+def draft_key(path: Path) -> str:
+    """A domain-qualified ingest-state key (the path relative to BRAIN_DIR).
+
+    Two domains can produce the same ``{date}-{slug}.md`` basename on the same day
+    (distill dedups per-domain). Keying ingest-state by basename alone would mark
+    the second as already-processed and silently drop it from the gate — breaking
+    the "nothing reaches a dead end without a human" invariant. Keying by the
+    relative path keeps them distinct.
+    """
+    try:
+        return path.resolve().relative_to(BRAIN_DIR.resolve()).as_posix()
+    except ValueError:
+        return path.name  # outside BRAIN_DIR (shouldn't happen); basename fallback
+
+
 def find_unprocessed_drafts(state: dict) -> list[Path]:
     """Scan all domains for session-capture drafts not yet in ingest-state.json."""
     drafts = []
@@ -841,7 +856,7 @@ def find_unprocessed_drafts(state: dict) -> list[Path]:
         for f in sorted(captures_dir.iterdir()):
             if f.suffix != ".md" or f.name.startswith("."):
                 continue
-            if f.name in state:
+            if draft_key(f) in state:
                 continue
             drafts.append(f)
     return drafts
@@ -895,7 +910,7 @@ def auto_ingest(dry_run: bool = False, verbose: bool = False):
 
         if not dry_run:
             state_map = {RED: "staged-red", YELLOW: "staged-yellow", GREEN: "staged-green"}
-            state[draft_path.name] = {
+            state[draft_key(draft_path)] = {
                 "tier": tier,
                 "state": state_map.get(tier, "classified"),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
