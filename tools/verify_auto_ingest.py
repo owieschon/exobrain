@@ -161,6 +161,32 @@ def main():
         staged_after = {p.name for p in (tmp / "tools" / "staged").glob("*")}
         report("second run is idempotent (no re-processing)",
                staged_before == staged_after)
+
+        # --- slug safety: no silent overwrite, no empty/hidden slugs ---
+        # The data-loss bug an adversarial review caught: two drafts sharing a
+        # cluster title clobbered each other's staged proposal, and unslug-able
+        # (e.g. CJK) titles wrote hidden files the reviewer never sees.
+        report("slug namespaces by domain",
+               ai.slug_from_draft({"cluster": "Retry With Backoff", "domain": "demo"})
+               == "demo__retry-with-backoff")
+        report("unslug-able title falls back to a hash (never empty/hidden)",
+               ai.slug_from_draft({"cluster": "日本語の教訓", "domain": "demo"}).startswith("demo__untitled-"))
+        ai.STAGED_DIR.mkdir(parents=True, exist_ok=True)
+        (ai.STAGED_DIR / "demo__dup.md").write_text("first proposal")
+        report("colliding slug is suffixed, not overwritten",
+               ai._unique_stem("demo__dup", ".md") == "demo__dup-2")
+        (ai.STAGED_DIR / "demo__dup-2.md").write_text("second proposal")
+        report("collision suffixing continues (-3)",
+               ai._unique_stem("demo__dup", ".md") == "demo__dup-3")
+        report("a free slug is returned unchanged",
+               ai._unique_stem("demo__novel", ".md") == "demo__novel")
+
+        # --- lesson parser tolerates a missing blank line after '## Lesson' ---
+        lesson_draft = tmp / "lesson-noblank.md"
+        lesson_draft.write_text(
+            "# T\n\n**Why it matters:** x\n\n**Suggested domain:** demo\n\n## Lesson\nthe body here\n")
+        report("lesson parses without a blank line after the heading",
+               ai.parse_draft(lesson_draft).get("lesson") == "the body here")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
