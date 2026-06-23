@@ -79,6 +79,8 @@ exobrain/
 │   ├── health_check.py        the 7-stage drift audit
 │   ├── eval.py                 scores the gate against the labeled dataset
 │   ├── eval_db.py             runs the analytical queries over the metrics store
+│   ├── memory_backend.py      Claude memory-tool backend over a directory
+│   ├── consolidate.py        cloud-optional consolidation via the memory tool
 │   ├── session-start-hook.sh  surfaces the backlog into a Claude Code session
 │   └── verify_*.py            the test harnesses
 ├── eval/
@@ -92,6 +94,7 @@ exobrain/
 │   ├── raw/                   the immutable junk drawer + session-captures/
 │   └── outputs/               answers + health-checks/
 ├── EVALUATION.md              how the gate is measured, and its honest ceiling
+├── CONSOLIDATION.md           local vs. cloud-optional (memory-tool) consolidation
 ├── Makefile                   `make check` = lint + tests; `make eval` = score
 └── pyproject.toml             ruff config; no runtime dependencies
 ```
@@ -128,7 +131,9 @@ make test
 `distill.py` is the one tool that needs a Claude Code transcript history and an
 API key, so it is not part of the keyless quickstart. With
 `ANTHROPIC_API_KEY` set, `python3 tools/distill.py` reads your session
-transcripts under `~/.claude` and writes capture drafts.
+transcripts under `~/.claude` and writes capture drafts. For a model-driven
+alternative — Claude reorganizing material through its memory tool, instead of
+the local heuristic — see [CONSOLIDATION.md](CONSOLIDATION.md).
 
 ## Promoting a proposal
 
