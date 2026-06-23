@@ -306,6 +306,11 @@ def stage_contradictions(scope: str, mode: str = "full") -> dict:
 
         for domain in domains_to_check:
             pages = list_wiki_pages(domain)
+            # Contradiction detection is inherently all-pairs (O(pages^2)
+            # comparisons), but each page is tokenized once into page_data here and
+            # the pair loop reuses those token sets — so tokenization is O(pages),
+            # bounded by one domain's page count (tens, for a personal wiki). No
+            # per-comparison re-tokenization.
             page_data = []
             for p in pages:
                 if p.stem == "index":
@@ -822,6 +827,8 @@ def stage_connection_candidates(scope: str, mode: str = "full") -> dict:
 
     for domain in domains_to_check:
         pages = list_wiki_pages(domain)
+        # Same shape as the contradiction stage: tokenize each page once, then run
+        # the O(pages^2) all-pairs comparison over the cached token sets.
         page_data = []
         for p in pages:
             if p.stem == "index":
