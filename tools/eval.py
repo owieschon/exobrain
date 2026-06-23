@@ -181,6 +181,7 @@ def record_run(db_path: Path, summary: dict, cases: list, results: list) -> int:
     variant = "stem" if os.environ.get("EXOBRAIN_STEM") == "1" else "baseline"
     con = sqlite3.connect(str(db_path))
     try:
+        con.execute("PRAGMA foreign_keys = ON")  # SQLite ignores REFERENCES unless this is set
         con.executescript((_REPO_ROOT / "eval" / "schema.sql").read_text())
         con.executemany(
             "INSERT OR IGNORE INTO cases(case_id, axis, expected_tier) VALUES (?, ?, ?)",
