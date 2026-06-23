@@ -1,0 +1,39 @@
+[project]
+name = "exobrain"
+version = "0.1.0"
+description = "Plain-text, LLM-curated knowledge base plus a stdlib-only capture/gate/audit pipeline."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "Owen Schoeniger" }]
+keywords = ["knowledge-base", "llm", "claude", "markdown", "notes"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
+# No runtime dependencies on purpose: the pipeline uses only the standard
+# library (urllib, not requests; no Anthropic SDK), so it runs anywhere Python
+# does and degrades to a no-op when there is no API key or network.
+dependencies = []
+
+[project.optional-dependencies]
+# Dev-only: ruff is the single linter for `make lint`. The test harnesses
+# (tools/verify_*.py) use stdlib asserts and need nothing here.
+dev = ["ruff>=0.4"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+extend-exclude = ["tools/staged", "*/raw", "*/wiki", "*/outputs"]
+
+[tool.ruff.lint]
+# Real errors and common bug classes, not style noise.
+select = ["E", "F", "W", "B", "I"]
+ignore = ["E501"]  # long lines tolerated (prompt strings, long comments)
+
+[tool.ruff.lint.per-file-ignores]
+# The verify_*.py harnesses MUST import their target module AFTER setting the
+# BRAIN_DIR env override (common.py reads it at import time), so module-level
+# imports legitimately follow setup code. Lambda fixtures are also fine here.
+"tools/verify_*.py" = ["E402", "E731", "B007"]
