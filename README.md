@@ -25,8 +25,8 @@ happens. This tool splits the two:
 ```
 
 Anything can land in `raw/` (the junk drawer). Nothing reaches `wiki/` (the
-curated set) without a human saying yes. That single invariant is the point of
-the design.
+curated set) without a human saying yes. That one invariant is what the rest of
+the design protects.
 
 ## Architecture
 
@@ -99,7 +99,7 @@ just creating folders — no code changes.
 ## Quickstart (about two minutes, no API key needed)
 
 ```bash
-# 1. See the domains the tools discover (just `example` out of the box)
+# 1. See the domains the tools discover (just `example` in a fresh checkout)
 BRAIN_DIR="$PWD" python3 -c "import sys; sys.path.insert(0,'tools'); \
   from common import DOMAINS; print(list(DOMAINS))"
 
@@ -181,8 +181,8 @@ it through.
 That is the ceiling of bag-of-words, not a tuning bug: a stemming variant was
 measured and *regressed* it (0.60 → 0.57). The real fix is a semantic backend
 (embeddings, or always-on LLM escalation), and the harness is already wired to
-quantify it. The point isn't the score — it's that the score exists, surfaces
-the real failure mode, and drove a decision on evidence.
+quantify it. Measuring it is what turned a vague worry into a known boundary and
+an evidence-based decision.
 
 Full write-up: **[EVALUATION.md](EVALUATION.md)**.
 
