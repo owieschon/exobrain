@@ -203,6 +203,33 @@ What this does *not* do: multi-tenant isolation (it's single-user, one local
 filesystem), or sandbox the optional consolidation agent's file operations within
 its staging root beyond the wiki guard.
 
+## Observability
+
+Sized to what this is: a single-user, local-first CLI you run yourself. The goal
+is to diagnose a run after the fact, not to operate a fleet — so the tooling is
+stdlib and local, and adds no services and no dependencies.
+
+- **Structured logging.** Diagnostics (errors, skipped steps) go through one
+  `exobrain` logger to stderr. `EXOBRAIN_LOG_LEVEL` sets the level (default
+  `WARNING`); `EXOBRAIN_LOG_JSON=1` switches to one JSON object per line. Product
+  output — the eval report, the audit, per-draft tiers — stays on stdout, so a
+  report still pipes cleanly regardless of log settings.
+- **An LLM-call trace.** Every model call records one JSON line — step, model,
+  input/output tokens, latency, outcome — through a single seam
+  (`common.trace_llm_call`, called at the one API chokepoint). Default sink is
+  `tools/llm-trace.jsonl` (gitignored); set `EXOBRAIN_TRACE=<path>` to relocate
+  it or `EXOBRAIN_TRACE=off` to disable. It records metadata only — never the
+  key, the prompt, or the response body, so the trace can't leak content.
+
+**Deliberately not added.** Sentry, LangSmith, and LangChain/LangGraph are the
+wrong tools here: cloud error/trace services would send a single user's data
+off-machine (against the local-first design), and a framework would be heavyweight
+scaffolding around a small stdlib pipeline. For richer agent tracing of the
+optional consolidation loop, `trace_llm_call` is the extension point — a local
+Arize **Phoenix** / OpenTelemetry exporter wired in there (manual spans, since the
+client is raw `urllib`, not an SDK) keeps traces on your machine. That belongs
+behind an optional extra, not in the zero-dependency core.
+
 ## Evaluation
 
 The gate's tiering is a heuristic standing in for a semantic judgment, so it is
