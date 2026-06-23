@@ -29,11 +29,11 @@ from pathlib import Path
 
 _TOOLS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_TOOLS_DIR))
-from common import BRAIN_DIR, DOMAINS, get_api_key  # noqa: E402
+from common import BRAIN_DIR, DOMAINS, LARGE_MODEL, get_api_key  # noqa: E402
 from memory_backend import MemoryBackend  # noqa: E402
 
 MEMORY_TOOL = {"type": "memory_20250818", "name": "memory"}
-MODEL = "claude-opus-4-8"
+MODEL = LARGE_MODEL
 MAX_TURNS = 12
 
 
