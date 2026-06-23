@@ -169,20 +169,22 @@ own operating manual (`CLAUDE.md`), its own wiki, no bleed between domains.
 ## Evaluation
 
 The gate's tiering is a heuristic standing in for a semantic judgment, so it is
-measured rather than trusted. `make eval` scores it against `eval/cases.jsonl` —
-35 cases labeled by three independent blind raters (consensus is ground truth, so
-the labels reflect *meaning*, not the word overlap the classifier happens to use).
+measured, not trusted. `make eval` scores it against `eval/cases.jsonl` — 35
+cases labeled by three independent blind raters (consensus = ground truth).
 
-The result is a clean, honest boundary: **0.60 accuracy overall, but 15/15 on
-lexical relationships and 1/10 on semantic ones.** When a draft duplicates a page
-in different words ("dogpile" vs. "thundering herd"), the matcher sees no overlap
-and waves it through. That is the ceiling of bag-of-words, not a tuning bug — a
-stemming variant was measured and *regressed* it (0.60 → 0.57), confirming the
-gap is semantic and the real fix is a semantic backend (embeddings or always-on
-LLM escalation), with the harness already wired to quantify it.
+The result is a clean boundary: **0.60 overall, but 10/10 where word overlap
+tracks meaning (lexical overlap and contradiction) and 1/10 where it doesn't
+(the semantic versions of each).** When a draft duplicates a page in different
+words — "dogpile" vs. "thundering herd" — the matcher sees no overlap and waves
+it through.
 
-The point isn't the score; it's that the score exists, surfaces the real failure
-mode, and drove a decision on evidence. Full write-up: **[EVALUATION.md](EVALUATION.md)**.
+That is the ceiling of bag-of-words, not a tuning bug: a stemming variant was
+measured and *regressed* it (0.60 → 0.57). The real fix is a semantic backend
+(embeddings, or always-on LLM escalation), and the harness is already wired to
+quantify it. The point isn't the score — it's that the score exists, surfaces
+the real failure mode, and drove a decision on evidence.
+
+Full write-up: **[EVALUATION.md](EVALUATION.md)**.
 
 ## Tests
 

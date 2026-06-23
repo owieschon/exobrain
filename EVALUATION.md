@@ -22,13 +22,19 @@ that flatter my own classifier:
 - **Generated** across seven difficulty axes (5 each): lexical vs. semantic
   overlap, lexical vs. semantic contradiction, clear net-new, net-new-with-shared-
   vocabulary noise, and ambiguous-domain.
-- **Labeled blind by three independent raters** who judged each case by *meaning*
-  (not word overlap) and never saw the proposed label. The ground-truth tier is
-  their consensus. 33 of 35 were unanimous.
+- **Labeled blind by three independent LLM raters** who judged each case by
+  *meaning* (not word overlap) and never saw the proposed label. The ground-truth
+  tier is their consensus; 33 of 35 were unanimous, and every case carries its
+  `agreement` (≥ 2 of 3) in the dataset.
 - **Adversarially vetted**: a final pass re-checked every label and looked for
   rigged, malformed, or duplicate cases. None were dropped.
 
 Tier distribution: 16 YELLOW, 10 RED, 9 GREEN.
+
+The labeling was an automated multi-agent pass, so the committed, verifiable
+artifact is each case's recorded `agreement` — not the individual rater
+transcripts. The point of the consensus is to keep me from hand-writing labels
+that flatter my own classifier; it is not a claim of human annotation.
 
 The semantic cases are the point of the set: e.g. a draft on "dogpiles" against a
 page on "thundering herd", or "penalizing bushy models" against "regularization"
@@ -67,13 +73,14 @@ Accuracy by axis:
 
 ## What this says
 
-The heuristics are not weak — they are *exactly as strong as word overlap allows*:
+The heuristics are exactly as strong as word overlap allows:
 
-- **Perfect on lexical relationships** (15/15). When two texts about the same
-  thing share vocabulary, coverage + Jaccard nail it.
-- **Near-blind to semantic ones** (1/10). When the same concept is phrased with
-  different words, the matcher sees no overlap and defaults to GREEN. Every
-  semantic contradiction is missed.
+- **Perfect where word overlap is decisive** — 10/10 on the lexical
+  relationships (overlap + contradiction), plus 5/5 on clear net-new. When two
+  texts about the same thing share vocabulary, coverage + Jaccard nail it.
+- **Near-blind where the relationship is semantic** (1/10). When the same
+  concept is phrased with different words, the matcher sees no overlap and
+  defaults to GREEN. Every semantic contradiction is missed.
 - This is why **RED precision is 1.00 but recall is 0.50**: when the classifier
   says "contradiction" it is always right, but it only catches the contradictions
   that announce themselves with shared words and negation language. And why
@@ -126,14 +133,11 @@ provide. Two paths, both real:
    gate is keyed on the very signal that is failing. Making the GREEN-candidate
    path consult a semantic backend is the structural fix.
 
-Both are deliberately out of scope here: I have no API key in this environment,
-so I could write that path but not *measure* it, and an unmeasured "fix" is the
-thing this whole document exists to avoid. The harness already reports whether
-the LLM path was active, and the dataset is ready to quantify either approach the
-moment a backend is wired in. (This is also where an optional
-[Claude Dreaming](https://www.anthropic.com/engineering/managed-agents) /
-managed-agent memory backend would plug in — see the project's local-first,
-cloud-optional direction.)
+Both are deliberately out of scope here: with no API key in this environment I
+could write that path but not *measure* it, and an unmeasured "fix" is the thing
+this whole document exists to avoid. The harness already reports whether the LLM
+path was active, and the dataset is ready to quantify either approach the moment
+a backend is wired in.
 
 ## Reproduce
 
