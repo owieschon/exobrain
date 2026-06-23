@@ -12,10 +12,13 @@ Provides:
 """
 
 import json
+import logging
 import os
 import re
 import subprocess
 import sys
+import time
+from datetime import datetime, timezone
 
 # ---------------------------------------------------------------------------
 # Paths. BRAIN_DIR defaults to the repo root (this file's grandparent) and can
@@ -29,6 +32,76 @@ _SCRIPT_DIR = Path(__file__).resolve().parent          # .../tools/
 _DEFAULT_BRAIN = _SCRIPT_DIR.parent                    # repo root
 
 BRAIN_DIR = Path(os.environ.get("BRAIN_DIR", str(_DEFAULT_BRAIN)))
+
+
+# ---------------------------------------------------------------------------
+# Logging. One "exobrain" logger, configured once, writing diagnostics to stderr
+# at a level set by EXOBRAIN_LOG_LEVEL (default WARNING); EXOBRAIN_LOG_JSON=1
+# emits one JSON object per line. This is for diagnostics (errors, skips) only —
+# the tools' product output (the eval report, the audit, per-draft tiers) stays
+# on stdout via print(), so piping a report is unaffected by log settings.
+# ---------------------------------------------------------------------------
+
+class _JsonLogFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        return json.dumps({
+            "level": record.levelname,
+            "logger": record.name,
+            "msg": record.getMessage(),
+        })
+
+
+def _build_logger() -> logging.Logger:
+    logger = logging.getLogger("exobrain")
+    if not logger.handlers:  # idempotent: re-importing common must not stack handlers
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(
+            _JsonLogFormatter() if os.environ.get("EXOBRAIN_LOG_JSON") == "1"
+            else logging.Formatter("%(levelname)s exobrain: %(message)s")
+        )
+        logger.addHandler(handler)
+        level = os.environ.get("EXOBRAIN_LOG_LEVEL", "WARNING").upper()
+        logger.setLevel(getattr(logging, level, logging.WARNING))
+        logger.propagate = False  # own handler only; don't double-log via root
+    return logger
+
+
+log = _build_logger()
+
+
+# ---------------------------------------------------------------------------
+# LLM-call trace. One JSON line per model call (model, tokens, latency, outcome)
+# appended to a local file — a zero-dependency, local-first run record for
+# after-the-fact diagnosis, in the spirit of the eval metrics store. Default
+# path is tools/llm-trace.jsonl (gitignored); override with EXOBRAIN_TRACE=<path>
+# or disable with EXOBRAIN_TRACE=off. Only metadata is written — never the key,
+# the prompt, or the response body.
+# ---------------------------------------------------------------------------
+
+_TRACE_PATH = os.environ.get("EXOBRAIN_TRACE", str(_SCRIPT_DIR / "llm-trace.jsonl"))
+
+
+def trace_llm_call(step: str, model: str, usage: "Optional[dict]",
+                   latency_ms: float, outcome: str) -> None:
+    """Append one JSONL record describing a model call. Never raises — tracing
+    must not be able to break a run."""
+    if _TRACE_PATH.lower() == "off":
+        return
+    usage = usage or {}
+    record = {
+        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "step": step,
+        "model": model,
+        "input_tokens": usage.get("input_tokens"),
+        "output_tokens": usage.get("output_tokens"),
+        "latency_ms": round(latency_ms),
+        "outcome": outcome,
+    }
+    try:
+        with open(_TRACE_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record) + "\n")
+    except OSError as exc:  # a full disk or read-only path must not break the run
+        log.debug("trace write failed: %s", exc)
 
 
 def discover_domains(brain_dir: Path = BRAIN_DIR) -> "dict[str, Path]":
@@ -104,8 +177,8 @@ def _warn_no_key_once() -> None:
     global _no_key_warned
     if not _no_key_warned:
         _no_key_warned = True
-        print("  note: ANTHROPIC_API_KEY not set — LLM-assisted steps are skipped; "
-              "deterministic paths still run.", file=sys.stderr)
+        log.warning("ANTHROPIC_API_KEY not set — LLM-assisted steps are skipped; "
+                    "deterministic paths still run.")
 
 
 def fence_untrusted(label: str, text: str) -> str:
@@ -124,24 +197,26 @@ def call_anthropic(
     prompt: str,
     max_tokens: int,
     timeout: int = 30,
-    error_prefix: str = "  API error",
+    error_prefix: str = "API error",
+    step: str = "llm",
 ) -> Optional[str]:
     """Call the Anthropic messages API. Returns the response text, or None on
-    failure (no API key, or a transport/API error, which is logged to stderr
-    with ``error_prefix``).
+    failure (no API key, or a transport/API error, which is logged via the
+    ``exobrain`` logger). Every call is recorded to the LLM-call trace
+    (``trace_llm_call``) with its model, token usage, latency, and outcome.
 
     Args:
         prompt: the user-message content.
         max_tokens: model max_tokens for the response.
         timeout: urlopen timeout in seconds.
-        error_prefix: stderr label used when a transport error is logged.
+        error_prefix: label used when a transport error is logged.
+        step: a short tag for the trace record (which step issued the call).
     """
     api_key = get_api_key()
     if not api_key:
         _warn_no_key_once()
         return None
 
-    import urllib.error
     import urllib.request
 
     payload = json.dumps(
@@ -162,15 +237,21 @@ def call_anthropic(
         },
     )
 
+    start = time.perf_counter()
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read())
-            for block in data.get("content", []):
-                if block.get("type") == "text":
-                    return block["text"]
     except Exception as e:
-        print(f"{error_prefix}: {e}", file=sys.stderr)
-    return None
+        log.warning("%s: %s", error_prefix.strip(), e)
+        trace_llm_call(step, ANTHROPIC_MODEL, None,
+                       (time.perf_counter() - start) * 1000, f"error:{type(e).__name__}")
+        return None
+
+    latency_ms = (time.perf_counter() - start) * 1000
+    text = next((b["text"] for b in data.get("content", []) if b.get("type") == "text"), None)
+    trace_llm_call(step, ANTHROPIC_MODEL, data.get("usage"), latency_ms,
+                   "ok" if text is not None else "empty")
+    return text
 
 
 # ---------------------------------------------------------------------------

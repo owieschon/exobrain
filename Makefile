@@ -11,6 +11,8 @@ test: ## Run all verification harnesses (the project's test suite)
 	python3 tools/verify_health_check.py
 	@echo ">> verify_memory_backend.py"
 	python3 tools/verify_memory_backend.py
+	@echo ">> verify_observability.py"
+	python3 tools/verify_observability.py
 
 eval: ## Score the gate classifier against the labeled dataset
 	python3 tools/eval.py

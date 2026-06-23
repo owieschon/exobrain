@@ -263,7 +263,8 @@ def call_haiku(prompt: str) -> Optional[str]:
         prompt,
         max_tokens=300,
         timeout=30,
-        error_prefix="    Haiku API error",
+        error_prefix="Haiku API error",
+        step="gate-contradiction",
     )
 
 
