@@ -90,6 +90,32 @@ The heuristics are exactly as strong as word overlap allows:
 
 The failure isn't a tuning problem. It's the ceiling of bag-of-words.
 
+## Live result (LLM escalation active, with an API key)
+
+The gate has an escape hatch above that ceiling: for the ambiguous-coverage band,
+it escalates to a small model (`claude-haiku-4-5`) for a YES/NO contradiction
+judgment. With an API key present, a representative live run measured:
+
+**Accuracy: 0.743 (26/35)** — up from the 0.60 deterministic baseline.
+
+| tier | precision | recall | f1 | support |
+|------|-----------|--------|----|---------|
+| GREEN | 0.50 | 0.89 | 0.64 | 9 |
+| YELLOW | 0.89 | 0.50 | 0.64 | 16 |
+| RED | **1.00** | **1.00** | **1.00** | 10 |
+
+The entire lift is in **semantic contradictions: 0/5 → 5/5**, taking RED recall
+from 0.50 to 1.00 — the escalation catches every contradiction the lexical path
+missed. **Semantic overlap stays at 1/5**, because those cases ("dogpile" vs
+"thundering herd") share almost no vocabulary, so their coverage falls *below* the
+escalation floor and they never reach the model. So the escalation helps precisely
+where there's enough lexical coverage to clear the floor — contradictions share
+the topic's words — and not where coverage is ≈ 0.
+
+Caveat: the escalation is LLM-graded and therefore non-deterministic; this is one
+representative run, not a fixed number. Reproduce with an API key set and
+`make eval` (the report header reads `LLM escalation: ACTIVE`).
+
 ## Experiment: does lexical normalization help?
 
 Hypothesis: if word *forms* are the issue, light suffix stemming

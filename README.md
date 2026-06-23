@@ -50,6 +50,7 @@ The system has four parts: **sources → pipeline → storage → review surface
                           (the AUDIT)      domain's curated pages ────────►     outputs/health-checks/
 
  REVIEW SURFACE: session-start-hook.sh surfaces the staged backlog into a new Claude Code session.
+ HUMAN GATE:     a person promotes a staged proposal ──► <domain>/wiki/  (the only path into wiki/).
 ```
 
 The three tools form a one-way pipeline and share one module:
@@ -178,6 +179,9 @@ own operating manual (`CLAUDE.md`), its own wiki, no bleed between domains.
   this step". The deterministic parts keep working offline.
 - **Human-gated.** No tool writes to `wiki/`. The gate only ever stages
   proposals; a person promotes them.
+
+Fuller rationale — including why the SQL metrics store and the cloud-optional
+consolidation path earn their place — is in [DECISIONS.md](DECISIONS.md).
 
 ## Security and trust boundaries
 
