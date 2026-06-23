@@ -86,7 +86,7 @@ exobrain/
 │   ├── session-start-hook.sh  surfaces the backlog into a Claude Code session
 │   └── verify_*.py            the test harnesses
 ├── eval/
-│   ├── cases.jsonl            labeled evaluation set (blind 3-rater consensus)
+│   ├── cases.jsonl            labeled evaluation set (LLM 3-rater consensus)
 │   ├── schema.sql            metrics-store schema (runs × cases × predictions)
 │   └── queries.sql           analytical queries (window functions, JOINs)
 ├── example/                   a demonstration domain (replace with your own)
@@ -123,7 +123,7 @@ ls tools/staged/ && cat tools/staged/*.md
 # 4. Run the drift audit over the example wiki
 BRAIN_DIR="$PWD" python3 tools/health_check.py
 
-# 5. Run the tests (both harnesses; no extra install needed)
+# 5. Run the tests (all four harnesses; no extra install needed)
 make test
 ```
 
@@ -197,7 +197,8 @@ LLM, so the boundaries are worth stating plainly:
   staged proposals, the metrics DB) is gitignored.
 - **SQL is parameterized or static** (`?` placeholders; no string-built queries).
 - **The memory-tool backend is path-traversal hardened** — every path must
-  resolve inside its root, symlinks included (`memory_backend.py`, tested).
+  resolve inside its root; `.resolve()` collapses both `..` and symlinks, and
+  both escape cases are tested (`verify_memory_backend.py`).
 
 What this does *not* do: multi-tenant isolation (it's single-user, one local
 filesystem), or sandbox the optional consolidation agent's file operations within
@@ -215,8 +216,9 @@ stdlib and local, and adds no services and no dependencies.
   output — the eval report, the audit, per-draft tiers — stays on stdout, so a
   report still pipes cleanly regardless of log settings.
 - **An LLM-call trace.** Every model call records one JSON line — step, model,
-  input/output tokens, latency, outcome — through a single seam
-  (`common.trace_llm_call`, called at the one API chokepoint). Default sink is
+  input/output tokens, latency, outcome — through one shared seam
+  (`common.trace_llm_call`), called at each of the two API call sites
+  (`call_anthropic` and the consolidation loop's `_post`). Default sink is
   `tools/llm-trace.jsonl` (gitignored); set `EXOBRAIN_TRACE=<path>` to relocate
   it or `EXOBRAIN_TRACE=off` to disable. It records metadata only — never the
   key, the prompt, or the response body, so the trace can't leak content.
@@ -234,7 +236,7 @@ behind an optional extra, not in the zero-dependency core.
 
 The gate's tiering is a heuristic standing in for a semantic judgment, so it is
 measured, not trusted. `make eval` scores it against `eval/cases.jsonl` — 35
-cases labeled by three independent blind raters (consensus = ground truth).
+cases labeled by three independent LLM raters (consensus = ground truth).
 
 The result is a clean boundary: **0.60 overall, but 10/10 where word overlap
 tracks meaning (lexical overlap and contradiction) and 1/10 where it doesn't
@@ -279,12 +281,17 @@ the `INTEGER PRIMARY KEY` changed to an identity column and numeric casts on the
 
 ## Tests
 
-Two assertion harnesses, run together by `make test`:
+Four assertion harnesses, run together by `make test`:
 
 - `verify_auto_ingest.py` — builds a throwaway temp brain and asserts the
-  GREEN/YELLOW/RED routing and the **no-wiki-write invariant**.
+  GREEN/YELLOW/RED routing, the slug/no-overwrite safety, and the
+  **no-wiki-write invariant**.
 - `verify_health_check.py` — exercises the audit's deterministic and judgment
   stages, including degradation with no API key.
+- `verify_memory_backend.py` — the memory-tool backend against its documented
+  contract, the path-traversal and symlink guards, malformed-call handling, and
+  the consolidation loop driven by a simulated API.
+- `verify_observability.py` — the logger configuration and the LLM-call trace.
 
 `make test` runs just the harnesses (no extra install). `make check` is
 `make test` plus a `ruff` lint, so it additionally needs the dev extra

@@ -33,7 +33,8 @@ database, no app. Git is the store and the audit trail.
   `None` on no-key/no-network. Every caller treats `None` as "skip this step".
 - **Diagnostics go through `common.log`** (the stdlib `exobrain` logger), not
   `print(..., file=sys.stderr)`; product output (reports, tiers) stays on stdout.
-  Every model call is recorded via `common.trace_llm_call` at the API chokepoint.
+  Every model call is recorded via `common.trace_llm_call`, called at each of the
+  two API call sites (`call_anthropic` and `consolidate._post`).
 - **Runtime state is written atomically** (`.tmp` then `os.replace`) and is
   gitignored (`ingest-state.json`, `pending-*.txt`, `tools/staged/*`,
   `distilled-sessions.json`). Never commit runtime state or `.pyc`.
@@ -47,7 +48,9 @@ database, no app. Git is the store and the audit trail.
   `get_api_key()`, `call_anthropic()`, `tokenize`, `jaccard`, `draft_coverage`,
   `fence_untrusted()`, `log`, `trace_llm_call()`, `STOPWORDS`, `NEGATION_SIGNALS`,
   `SUPERSEDE_SIGNALS`. Don't write a second API client, logger, domain list, or
-  token-similarity helper.
+  token-similarity helper — for plain text calls, use `call_anthropic`.
+  (`consolidate._post` is the one deliberate exception: the memory-tool loop needs
+  `tools=[...]`, which `call_anthropic` doesn't send. Both trace via `trace_llm_call`.)
 - The gate is `auto_ingest.py`. New intake should land drafts in
   `raw/session-captures/` and let the gate tier them — don't build a second gate.
 - Idempotency markers already exist: `ingest-state.json` (keyed by draft
