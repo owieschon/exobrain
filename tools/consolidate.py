@@ -94,9 +94,12 @@ def consolidate(root, prompt: str, model: str = MODEL, max_turns: int = MAX_TURN
         results = []
         for block in content:
             if block.get("type") == "tool_use" and block.get("name") == "memory":
+                block_id = block.get("id")
+                if not block_id:  # malformed tool_use; skip rather than crash
+                    continue
                 results.append({
                     "type": "tool_result",
-                    "tool_use_id": block["id"],
+                    "tool_use_id": block_id,
                     "content": backend.handle(block.get("input", {})),
                 })
         if not results:
