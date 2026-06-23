@@ -69,6 +69,15 @@ def main():
           and s["per_axis"]["a2"] == {"correct": 2, "total": 2})
     check("failures lists exactly the one miss (c2)", [f["id"] for f in s["failures"]] == ["c2"])
     check("empty input is safe (accuracy 0.0, no ZeroDivision)", ev.score([], [])["accuracy"] == 0.0)
+    try:
+        ev.score([{"id": "bad", "expected_tier": "BLUE", "axis": "a"}], ["GREEN"])
+        raised = ""
+    except ValueError as exc:
+        raised = str(exc)
+    except KeyError as exc:
+        raised = f"KeyError:{exc}"
+    check("an invalid expected_tier names the case (ValueError, not a bare KeyError)",
+          "bad" in raised and "BLUE" in raised and "KeyError" not in raised, raised)
 
     # --- record_run(): persists normalized rows and returns a run_id ---
     tmp = Path(tempfile.mkdtemp(prefix="eval-verify-"))

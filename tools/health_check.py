@@ -59,14 +59,14 @@ from common import (  # noqa: E402  (local import after sys.path bootstrap above
 
 STALE_THRESHOLD_DAYS = 90
 
-# Contradiction-detection thresholds and the Haiku escalation helper are shared
+# Contradiction-detection thresholds and the small-model escalation helper are shared
 # with the gate, so import them rather than defining a second copy.
 from auto_ingest import (  # noqa: E402  (local import after sys.path bootstrap above)
+    AMBIGUITY_FLOOR,
     COVERAGE_CONTRADICTION,
     COVERAGE_OVERLAP,
     COVERAGE_SUPERSEDE,
-    HAIKU_AMBIGUITY_FLOOR,
-    haiku_contradiction_check,
+    small_model_contradiction_check,
 )
 
 # Page-vs-page comparison thresholds (full audit mode). Two whole wiki pages
@@ -196,7 +196,7 @@ def stage_contradictions(scope: str, mode: str = "full") -> dict:
     """Check for contradictions between wiki pages.
 
     JUDGMENT stage. Reuses auto_ingest.py's coverage/signal analysis:
-    token coverage, negation signals, supersede signals, Haiku escalation.
+    token coverage, negation signals, supersede signals, small-model escalation.
     Synthesis pages are excluded as comparison sources (they aggregate
     content from many pages and would generate false positives).
 
@@ -278,9 +278,9 @@ def stage_contradictions(scope: str, mode: str = "full") -> dict:
                 })
                 continue
 
-            # Signal 3: ambiguous range, consult Haiku if available
-            if HAIKU_AMBIGUITY_FLOOR < cov < COVERAGE_OVERLAP:
-                api_result = haiku_contradiction_check(
+            # Signal 3: ambiguous range, consult the small model if available
+            if AMBIGUITY_FLOOR < cov < COVERAGE_OVERLAP:
+                api_result = small_model_contradiction_check(
                     new_text, existing_page.stem, existing_text
                 )
                 if api_result is True:
@@ -288,7 +288,7 @@ def stage_contradictions(scope: str, mode: str = "full") -> dict:
                     result["issues"].append({
                         "page": slug,
                         "detail": (
-                            f"Haiku confirmed contradiction against "
+                            f"small model confirmed contradiction against "
                             f"[[{existing_page.stem}]] (coverage={cov:.2f})"
                         ),
                     })
@@ -392,9 +392,9 @@ def stage_contradictions(scope: str, mode: str = "full") -> dict:
                         })
                         continue
 
-                    if HAIKU_AMBIGUITY_FLOOR < cov < COVERAGE_OVERLAP:
+                    if AMBIGUITY_FLOOR < cov < COVERAGE_OVERLAP:
                         if has_api:
-                            api_result = haiku_contradiction_check(
+                            api_result = small_model_contradiction_check(
                                 page_a["text"],
                                 page_b["stem"],
                                 page_b["text"],
@@ -407,7 +407,7 @@ def stage_contradictions(scope: str, mode: str = "full") -> dict:
                                         f"{page_b['stem']}"
                                     ),
                                     "detail": (
-                                        f"Haiku confirmed contradiction "
+                                        f"small model confirmed contradiction "
                                         f"(coverage={cov:.2f})"
                                     ),
                                 })
