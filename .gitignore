@@ -1,5 +1,14 @@
 .DS_Store
 *.tmp
+# secrets / local env — defensive: this project stores no secrets, but never
+# commit one by accident
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+.secrets
+credentials.json
 # Python bytecode
 __pycache__/
 *.pyc
