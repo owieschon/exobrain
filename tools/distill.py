@@ -482,7 +482,8 @@ def call_anthropic_api(prompt: str) -> Optional[str]:
         prompt,
         max_tokens=2000,
         timeout=60,
-        error_prefix="  API error",
+        error_prefix="API error",
+        step="distill",
     )
 
 

@@ -23,13 +23,20 @@ Reference: https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-
 """
 import json
 import sys
-import urllib.error
+import time
 import urllib.request
 from pathlib import Path
 
 _TOOLS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_TOOLS_DIR))
-from common import BRAIN_DIR, DOMAINS, LARGE_MODEL, get_api_key  # noqa: E402
+from common import (  # noqa: E402
+    BRAIN_DIR,
+    DOMAINS,
+    LARGE_MODEL,
+    get_api_key,
+    log,
+    trace_llm_call,
+)
 from memory_backend import MemoryBackend  # noqa: E402
 
 MEMORY_TOOL = {"type": "memory_20250818", "name": "memory"}
@@ -60,14 +67,13 @@ def consolidate(root, prompt: str, model: str = MODEL, max_turns: int = MAX_TURN
     network call (see verify_memory_backend.py). It defaults to the real client.
     """
     if _targets_wiki(root):
-        print(f"  Refusing: {root} overlaps a domain's wiki/. Consolidation never "
-              "writes curated pages; point it at a staging directory.", file=sys.stderr)
+        log.warning("refusing: %s overlaps a domain's wiki/. Consolidation never "
+                    "writes curated pages; point it at a staging directory.", root)
         return None
 
     api_key = get_api_key()
     if not api_key:
-        print("  No API key; skipping cloud consolidation (the local pipeline is the default).",
-              file=sys.stderr)
+        log.warning("no API key; skipping cloud consolidation (the local pipeline is the default).")
         return None
 
     post = post_fn or _post
@@ -97,7 +103,7 @@ def consolidate(root, prompt: str, model: str = MODEL, max_turns: int = MAX_TURN
             return "".join(b.get("text", "") for b in content if b.get("type") == "text")
         messages.append({"role": "user", "content": results})
 
-    print(f"  Reached the {max_turns}-turn cap without an end-of-turn.", file=sys.stderr)
+    log.warning("reached the %d-turn cap without an end-of-turn.", max_turns)
     return None
 
 
@@ -117,12 +123,18 @@ def _post(api_key: str, model: str, messages: list):
             "anthropic-version": "2023-06-01",
         },
     )
+    start = time.perf_counter()
     try:
         with urllib.request.urlopen(req, timeout=120) as r:
-            return json.loads(r.read())
+            data = json.loads(r.read())
     except Exception as exc:  # degrade, never crash
-        print(f"  consolidation API error: {exc}", file=sys.stderr)
+        log.warning("consolidation API error: %s", exc)
+        trace_llm_call("consolidate", model, None,
+                       (time.perf_counter() - start) * 1000, f"error:{type(exc).__name__}")
         return None
+    trace_llm_call("consolidate", model, data.get("usage"),
+                   (time.perf_counter() - start) * 1000, data.get("stop_reason", "ok"))
+    return data
 
 
 def main():
