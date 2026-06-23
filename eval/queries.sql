@@ -1,7 +1,10 @@
 -- Analytical queries over the evaluation metrics store (see schema.sql).
--- Each block is a single statement and is run/printed by `tools/eval_db.py`
--- (which splits on the "-- === Title ===" markers). Standard SQL; the window
--- functions and CTEs port to Postgres unchanged.
+-- Each block is a single statement, run and printed by `tools/eval_db.py`,
+-- which splits on the whole-line "-- === Title ===" markers.
+--
+-- Targets SQLite. The CTEs and window functions are standard SQL; a Postgres
+-- port needs numeric casts on the round() calls (Postgres has no
+-- round(double, int)) and the IDENTITY change noted in schema.sql.
 
 -- === Per-axis accuracy (latest run) ===
 -- Where does the classifier do well or badly? Join each prediction in the most
@@ -54,7 +57,7 @@ SELECT
     SUM(CASE WHEN s.predicted_tier = t.tier AND s.expected_tier = t.tier THEN 1 ELSE 0 END) AS true_pos,
     ROUND(
         1.0 * SUM(CASE WHEN s.predicted_tier = t.tier AND s.expected_tier = t.tier THEN 1 ELSE 0 END)
-        / NULLIF(SUM(CASE WHEN s.predicted_tier = t.tier THEN 1 ELSE 0 END), 0), 2)          AS precision,
+        / NULLIF(SUM(CASE WHEN s.predicted_tier = t.tier THEN 1 ELSE 0 END), 0), 2)          AS prec,
     ROUND(
         1.0 * SUM(CASE WHEN s.predicted_tier = t.tier AND s.expected_tier = t.tier THEN 1 ELSE 0 END)
         / NULLIF(SUM(CASE WHEN s.expected_tier = t.tier THEN 1 ELSE 0 END), 0), 2)           AS recall

@@ -17,7 +17,11 @@ DEFAULT_DB = _REPO_ROOT / "eval" / "results.db"
 
 
 def split_blocks(sql: str) -> list:
-    """Split queries.sql into (title, statement) pairs on the '-- === Title ===' markers."""
+    """Split queries.sql into (title, statement) pairs on the '-- === Title ===' markers.
+
+    A marker must be the whole line; a marker-shaped substring mid-line (e.g. inside
+    a string literal) is left alone, because the match is anchored to the full line.
+    """
     blocks = []
     title, lines = None, []
     for line in sql.splitlines():

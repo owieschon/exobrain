@@ -6,9 +6,10 @@
 -- cases, which you want to slice and trend. That is a relational workload, so it
 -- lives here in SQL.
 --
--- Standard SQL, kept SQLite-compatible (the project ships no services); the only
--- SQLite-ism is the storage class names, so it ports to Postgres with minimal
--- change (INTEGER PRIMARY KEY -> SERIAL/IDENTITY, the rest is portable).
+-- Targets SQLite (the project ships no services). The structure is standard SQL;
+-- a Postgres port needs the INTEGER PRIMARY KEY changed to an IDENTITY column and
+-- numeric casts on the round() calls in queries.sql. Foreign keys are declared
+-- and enforced at write time (the writer sets PRAGMA foreign_keys=ON).
 
 -- The dataset, one row per labeled case. Static across runs; the expected tier
 -- is the blind-rater consensus (see EVALUATION.md).
@@ -26,7 +27,8 @@ CREATE TABLE IF NOT EXISTS runs (
     variant    TEXT    NOT NULL DEFAULT 'baseline',  -- e.g. 'baseline', 'stem'
     llm_active INTEGER NOT NULL DEFAULT 0, -- 1 if the LLM-escalation path ran
     n_cases    INTEGER NOT NULL,
-    accuracy   REAL    NOT NULL
+    accuracy   REAL    NOT NULL  -- cached aggregate of predictions.correct (kept so a run's
+                                 -- headline survives even if its predictions are pruned)
 );
 
 -- One row per (run, case): what the classifier predicted, and whether it matched.
