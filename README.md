@@ -182,8 +182,8 @@ tracks meaning (lexical overlap and contradiction) and 1/10 where it doesn't
 words — "dogpile" vs. "thundering herd" — the matcher sees no overlap and waves
 it through.
 
-That is the ceiling of bag-of-words, not a tuning bug: a stemming variant was
-measured and *regressed* it (0.60 → 0.57). The real fix is a semantic backend
+A stemming variant was measured and *regressed* it (0.60 → 0.57) — the gap is in
+the representation, not the thresholds. The real fix is a semantic backend
 (embeddings, or always-on LLM escalation), and the harness is already wired to
 quantify it. Measuring it is what turned a vague worry into a known boundary and
 an evidence-based decision.
@@ -208,9 +208,14 @@ run_id  variant   accuracy  delta_vs_prev
 2       stem      0.571     -0.029
 ```
 
-Schema and queries are standard SQL ([`eval/schema.sql`](eval/schema.sql),
-[`eval/queries.sql`](eval/queries.sql)); only the `INTEGER PRIMARY KEY`
-declarations change to port to Postgres.
+Because `make eval-db` records the stemming run last, the "latest run" queries
+report the stem variant (e.g. GREEN precision 0.37); the baseline figures are the
+ones in [EVALUATION.md](EVALUATION.md).
+
+The schema and queries are standard SQL ([`eval/schema.sql`](eval/schema.sql),
+[`eval/queries.sql`](eval/queries.sql)) that target SQLite; a Postgres port needs
+the `INTEGER PRIMARY KEY` changed to an identity column and numeric casts on the
+`round()` calls.
 
 ## Tests
 
