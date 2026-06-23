@@ -9,14 +9,14 @@ this.
 
 Two guarantees keep it consistent with the rest of the project:
   * It uses only the standard library (urllib), like every other tool here.
-  * It NEVER targets a domain's wiki/. The memory directory is a staging area,
-    so the human-gate invariant ("nothing reaches wiki/ without a human") holds:
-    consolidation produces material for review, not curated pages.
+  * It NEVER targets a domain's wiki/. consolidate() refuses a memory root that
+    overlaps a wiki/ (see _targets_wiki), so the human-gate invariant ("nothing
+    reaches wiki/ without a human") is enforced, not just asserted.
 
-Requires ANTHROPIC_API_KEY and the memory-tool beta. The live agent loop is not
-exercised by the test suite (no key in CI); what *is* tested is the memory
-backend it drives (see verify_memory_backend.py) and that this degrades to a
-clear no-op without a key.
+Requires ANTHROPIC_API_KEY and a model that supports the memory tool. The live
+agent loop is not exercised by the test suite (no key in CI); what *is* tested is
+the memory backend it drives (see verify_memory_backend.py), the wiki guard
+below, and that this degrades to a clear no-op without a key.
 
 Reference: https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool
 """
@@ -28,13 +28,24 @@ from pathlib import Path
 
 _TOOLS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_TOOLS_DIR))
-from common import BRAIN_DIR, get_api_key  # noqa: E402
+from common import BRAIN_DIR, DOMAINS, get_api_key  # noqa: E402
 from memory_backend import MemoryBackend  # noqa: E402
 
 MEMORY_TOOL = {"type": "memory_20250818", "name": "memory"}
-MEMORY_BETA = "context-management-2025-06-27"  # beta header that enables the memory tool
 MODEL = "claude-opus-4-8"
 MAX_TURNS = 12
+
+
+def _targets_wiki(root) -> bool:
+    """True if a memory root overlaps any domain's wiki/ (inside it, equal to it,
+    or an ancestor that could create it). Used to enforce the human-gate
+    invariant: consolidation must never write curated pages."""
+    root = Path(root).resolve()
+    for domain_path in DOMAINS.values():
+        wiki = (domain_path / "wiki").resolve()
+        if root == wiki or wiki in root.parents or root in wiki.parents:
+            return True
+    return False
 
 
 def consolidate(root, prompt: str, model: str = MODEL, max_turns: int = MAX_TURNS):
@@ -43,6 +54,11 @@ def consolidate(root, prompt: str, model: str = MODEL, max_turns: int = MAX_TURN
     Returns the model's final text, or None if no API key is available (degrade,
     never crash — the same contract as common.call_anthropic).
     """
+    if _targets_wiki(root):
+        print(f"  Refusing: {root} overlaps a domain's wiki/. Consolidation never "
+              "writes curated pages; point it at a staging directory.", file=sys.stderr)
+        return None
+
     api_key = get_api_key()
     if not api_key:
         print("  No API key; skipping cloud consolidation (the local pipeline is the default).",
@@ -93,7 +109,6 @@ def _post(api_key: str, model: str, messages: list):
             "content-type": "application/json",
             "x-api-key": api_key,
             "anthropic-version": "2023-06-01",
-            "anthropic-beta": MEMORY_BETA,
         },
     )
     try:

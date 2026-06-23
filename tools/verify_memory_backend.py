@@ -108,6 +108,12 @@ def main():
         consolidate.get_api_key = lambda: None
         check("consolidate degrades to None without a key",
               consolidate.consolidate(tmp, "noop") is None)
+
+        # the wiki-guard that enforces the human-gate invariant
+        from common import BRAIN_DIR
+        check("guard flags a wiki/ root", consolidate._targets_wiki(BRAIN_DIR / "example" / "wiki") is True)
+        check("guard flags a domain root (could create wiki/)", consolidate._targets_wiki(BRAIN_DIR / "example") is True)
+        check("guard allows a staging root", consolidate._targets_wiki(tmp) is False)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

@@ -35,10 +35,10 @@ python3 tools/consolidate.py --root <a staging dir>   # needs ANTHROPIC_API_KEY
 
 - **No new dependencies.** Like every other tool here, it uses `urllib`, not the
   Anthropic SDK.
-- **It never targets a `wiki/`.** The memory directory is a staging area, so the
-  human-gate invariant holds: consolidation produces material for review, never
-  curated pages. Pointing the memory tool at a wiki would let the model auto-write
-  curated content, which the gate exists to prevent.
+- **It never targets a `wiki/`** — and this is enforced, not just stated.
+  `consolidate()` refuses to run if the memory root resolves inside, equals, or
+  contains a domain's `wiki/` (`_targets_wiki`), so the human-gate invariant
+  holds: consolidation produces material for review, never curated pages.
 
 ## What is and isn't verified
 
