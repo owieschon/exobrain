@@ -11,10 +11,7 @@ becomes "knowledge".
 > software, not a packaged product. The core is the capture→gate→curate→audit
 > pipeline below; the [evaluation](#evaluation), the SQL metrics store, and the
 > optional cloud [consolidation](CONSOLIDATION.md) are smaller pieces that serve
-> it. The pipeline and consolidation path have assertion harnesses (`make check`);
-> the evaluation and metrics store are exercised by `make eval` and `make eval-db`.
-> The bundled `example/`
-> domain is a demonstration — replace it with your own.
+> it. The bundled `example/` domain is a demonstration — replace it with your own.
 
 ## The idea
 
@@ -130,9 +127,6 @@ BRAIN_DIR="$PWD" python3 tools/health_check.py
 make test
 ```
 
-(`make check` also runs `ruff`, which needs the dev extra:
-`pip install -e '.[dev]'`.)
-
 `distill.py` is the one tool that needs a Claude Code transcript history and an
 API key, so it is not part of the keyless quickstart. With
 `ANTHROPIC_API_KEY` set, `python3 tools/distill.py` reads your session
@@ -181,7 +175,7 @@ own operating manual (`CLAUDE.md`), its own wiki, no bleed between domains.
   proposals; a person promotes them.
 
 Fuller rationale — including why the SQL metrics store and the cloud-optional
-consolidation path earn their place — is in [DECISIONS.md](DECISIONS.md).
+consolidation path are worth their weight — is in [DECISIONS.md](DECISIONS.md).
 
 ## Security and trust boundaries
 
@@ -242,73 +236,34 @@ behind an optional extra, not in the zero-dependency core.
 ## Evaluation
 
 The gate's tiering is a heuristic standing in for a semantic judgment, so it is
-measured, not trusted. `make eval` scores it against `eval/cases.jsonl` — 35
-cases labeled by three independent LLM raters (consensus = ground truth).
-
-The result is a clean boundary: **0.60 overall, but 10/10 where word overlap
-tracks meaning (lexical overlap and contradiction) and 1/10 where it doesn't
-(the semantic versions of each).** When a draft duplicates a page in different
-words — "dogpile" vs. "thundering herd" — the matcher sees no overlap and waves
-it through.
-
-A stemming variant was measured and *regressed* it (0.60 → 0.57) — the gap is in
-the representation, not the thresholds. The real fix is a semantic backend
-(embeddings, or always-on LLM escalation), and the harness is already wired to
-quantify it. Measuring it is what turned a vague worry into a known boundary and
-an evidence-based decision.
-
-Full write-up: **[EVALUATION.md](EVALUATION.md)**.
+measured, not trusted. `make eval` scores it against 35 labeled cases. The result
+is a clean boundary: **0.60 deterministic — 10/10 where word overlap tracks
+meaning, 1/10 where it doesn't.** With an API key, the small-model escalation
+lifts it to **0.743**, closing the semantic-contradiction gap. The methodology,
+the failure analysis, and a rejected stemming experiment are in
+**[EVALUATION.md](EVALUATION.md)**.
 
 ### Metrics store (SQL)
 
-Eval runs are the one genuinely relational thing in this repo — a time series of
-runs, each scoring the same fixed cases — so they go in SQLite rather than
-another flat file. `make eval-db` records two runs (baseline and the stemming
-variant) and prints the analytical queries in [`eval/queries.sql`](eval/queries.sql):
-per-axis accuracy (JOIN + GROUP BY), the accuracy trend with a run-over-run delta
-(a `LAG` window function), per-tier precision/recall, the confusion matrix, and
-the cases that flipped between the two latest runs.
-
-The window-function trend puts the stemming regression on one row:
-
-```
-run_id  variant   accuracy  delta_vs_prev
-1       baseline  0.6       (none)
-2       stem      0.571     -0.029
-```
-
-Because `make eval-db` records the stemming run last, the "latest run" queries
-report the stem variant (e.g. GREEN precision 0.37); the baseline figures are the
-ones in [EVALUATION.md](EVALUATION.md).
-
-The schema and queries are standard SQL ([`eval/schema.sql`](eval/schema.sql),
-[`eval/queries.sql`](eval/queries.sql)) that target SQLite; a Postgres port needs
-the `INTEGER PRIMARY KEY` changed to an identity column and numeric casts on the
-`round()` calls.
+Eval runs are the one genuinely relational thing here — a time series over the
+same fixed cases — so they go in SQLite, not another flat file. `make eval-db`
+records runs and prints the analytical queries in
+[`eval/queries.sql`](eval/queries.sql): per-axis accuracy, a run-over-run accuracy
+trend (a `LAG` window function), per-tier precision/recall, and the confusion
+matrix. Why SQL here but files for the knowledge: **[DECISIONS.md](DECISIONS.md)**.
 
 ## Tests
 
-Six assertion harnesses, run together by `make test`:
+Six stdlib assertion harnesses (`tools/verify_*.py`, ~120 checks) run by
+`make test`, each building a throwaway temp brain where relevant. Between them
+they cover the gate's GREEN/YELLOW/RED routing and its **no-wiki-write
+invariant**, the audit's deterministic and key-optional stages, the memory-tool
+contract with its path-traversal and symlink guards, the eval scorer and its SQL
+queries, the distill producer→gate-parser round-trip, and the observability seam —
+all with no API key (model calls degrade to a no-op).
 
-- `verify_auto_ingest.py` — builds a throwaway temp brain and asserts the
-  GREEN/YELLOW/RED routing, the slug/no-overwrite safety, and the
-  **no-wiki-write invariant**.
-- `verify_health_check.py` — exercises the audit's deterministic and judgment
-  stages, including degradation with no API key.
-- `verify_memory_backend.py` — the memory-tool backend against its documented
-  contract, the path-traversal and symlink guards, malformed-call handling, and
-  the consolidation loop driven by a simulated API.
-- `verify_observability.py` — the logger configuration and the LLM-call trace.
-- `verify_eval.py` — the scorer's metrics against hand-computed values, the
-  metrics-store writes, and that every analytical query in `queries.sql` runs.
-- `verify_distill.py` — the capture producer, including the round-trip through
-  the gate's parser (the producer/consumer contract) and atomic marker writes.
-
-`make test` runs just the harnesses (no extra install). `make check` is
-`make test` plus a `ruff` lint, so it additionally needs the dev extra
-(`pip install -e '.[dev]'`). A GitHub Actions workflow
-(`.github/workflows/ci.yml`) runs the tests and the lint on Python 3.9, 3.11,
-and 3.13.
+`make check` adds a `ruff` lint (needs the dev extra, `pip install -e '.[dev]'`);
+CI runs both on Python 3.9, 3.11, and 3.13.
 
 ## Acknowledgements
 
