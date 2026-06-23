@@ -11,7 +11,9 @@ becomes "knowledge".
 > software, not a packaged product. The core is the capture→gate→curate→audit
 > pipeline below; the [evaluation](#evaluation), the SQL metrics store, and the
 > optional cloud [consolidation](CONSOLIDATION.md) are smaller pieces that serve
-> it, each with its own tests (all run by `make check`). The bundled `example/`
+> it. The pipeline and consolidation path have assertion harnesses (`make check`);
+> the evaluation and metrics store are exercised by `make eval` and `make eval-db`.
+> The bundled `example/`
 > domain is a demonstration — replace it with your own.
 
 ## The idea
@@ -192,9 +194,10 @@ LLM, so the boundaries are worth stating plainly:
   is fenced and labelled "data, not instructions" before it enters a prompt
   (`common.fence_untrusted`). Fencing lowers the odds; the gate is what makes a
   successful injection harmless.
-- **No secrets in the repo or its history.** The API key is read from the env or
-  the macOS Keychain, never written to disk or logged. Runtime state (captures,
-  staged proposals, the metrics DB) is gitignored.
+- **No secrets in the repo or its history.** The tools only *read* the API key
+  (from the env or the macOS Keychain) — they never write or log it. An optional
+  local `.env` is gitignored and must never be committed. Runtime state (captures,
+  staged proposals, the metrics DB) is gitignored too.
 - **SQL is parameterized or static** (`?` placeholders; no string-built queries).
 - **The memory-tool backend is path-traversal hardened** — every path must
   resolve inside its root; `.resolve()` collapses both `..` and symlinks, and
