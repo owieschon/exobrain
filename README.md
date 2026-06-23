@@ -7,10 +7,12 @@ folders, with Git as the store and the audit trail. An LLM (Claude) does the
 librarian work of drafting and comparing pages; a human approves everything that
 becomes "knowledge".
 
-> **Status:** a working personal tool, shared as a portfolio example. It runs and
-> its two harnesses pass (see [Tests](#tests)), but it is single-user software,
-> not a packaged product. The bundled `example/` domain is a demonstration —
-> replace it with your own.
+> **Status:** a working personal tool, shared as a portfolio example — single-user
+> software, not a packaged product. The core is the capture→gate→curate→audit
+> pipeline below; the [evaluation](#evaluation), the SQL metrics store, and the
+> optional cloud [consolidation](CONSOLIDATION.md) are smaller pieces that serve
+> it, each with its own tests (all run by `make check`). The bundled `example/`
+> domain is a demonstration — replace it with your own.
 
 ## The idea
 

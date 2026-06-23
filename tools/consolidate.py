@@ -13,10 +13,11 @@ Two guarantees keep it consistent with the rest of the project:
     overlaps a wiki/ (see _targets_wiki), so the human-gate invariant ("nothing
     reaches wiki/ without a human") is enforced, not just asserted.
 
-Requires ANTHROPIC_API_KEY and a model that supports the memory tool. The live
-agent loop is not exercised by the test suite (no key in CI); what *is* tested is
-the memory backend it drives (see verify_memory_backend.py), the wiki guard
-below, and that this degrades to a clear no-op without a key.
+A live run needs a normal ANTHROPIC_API_KEY (the memory tool is a standard API
+tool, not a gated beta). The agent loop is injectable (``post_fn``) and is tested
+against a simulated API in verify_memory_backend.py, so its orchestration is
+verified with no key or network; a key only adds the real model round-trip. The
+memory backend, the wiki guard, and the no-key degradation are tested too.
 
 Reference: https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool
 """
@@ -48,11 +49,15 @@ def _targets_wiki(root) -> bool:
     return False
 
 
-def consolidate(root, prompt: str, model: str = MODEL, max_turns: int = MAX_TURNS):
+def consolidate(root, prompt: str, model: str = MODEL, max_turns: int = MAX_TURNS, post_fn=None):
     """Run one consolidation conversation, executing memory tool calls over ``root``.
 
     Returns the model's final text, or None if no API key is available (degrade,
     never crash — the same contract as common.call_anthropic).
+
+    ``post_fn(api_key, model, messages) -> response_dict | None`` is injectable so
+    the agent loop can be driven by a simulated API in tests, without a key or a
+    network call (see verify_memory_backend.py). It defaults to the real client.
     """
     if _targets_wiki(root):
         print(f"  Refusing: {root} overlaps a domain's wiki/. Consolidation never "
@@ -65,11 +70,12 @@ def consolidate(root, prompt: str, model: str = MODEL, max_turns: int = MAX_TURN
               file=sys.stderr)
         return None
 
+    post = post_fn or _post
     backend = MemoryBackend(root)
     messages = [{"role": "user", "content": prompt}]
 
     for _ in range(max_turns):
-        resp = _post(api_key, model, messages)
+        resp = post(api_key, model, messages)
         if resp is None:
             return None
         content = resp.get("content", [])
