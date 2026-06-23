@@ -1,0 +1,15 @@
+.DS_Store
+*.tmp
+# Python bytecode
+__pycache__/
+*.pyc
+# stray lock
+.lock
+# runtime / generated state (not knowledge)
+distilled-sessions.json
+pending-reconciliation.txt
+tools/ingest-state.json
+tools/pending-ingest.txt
+# transient ingest proposals awaiting human review
+tools/staged/*
+!tools/staged/.gitkeep
