@@ -1,0 +1,4 @@
+# GitHub Linguist buckets SQL as a "data" language and leaves it out of the
+# repository language bar by default (the same exclusion as JSON/YAML), even
+# though eval/*.sql is real, hand-written SQL. Opt it back into the stats.
+*.sql linguist-detectable=true
