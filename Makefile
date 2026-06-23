@@ -1,4 +1,4 @@
-.PHONY: help test lint check
+.PHONY: help test lint check eval
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -9,6 +9,9 @@ test: ## Run all verification harnesses (the project's test suite)
 	python3 tools/verify_auto_ingest.py
 	@echo ">> verify_health_check.py"
 	python3 tools/verify_health_check.py
+
+eval: ## Score the gate classifier against the labeled dataset
+	python3 tools/eval.py
 
 lint: ## Lint the tooling with ruff (pip install -e '.[dev]')
 	ruff check tools/
