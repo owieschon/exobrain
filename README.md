@@ -78,9 +78,13 @@ exobrain/
 │   ├── auto_ingest.py         the gate: classify + stage for review
 │   ├── health_check.py        the 7-stage drift audit
 │   ├── eval.py                 scores the gate against the labeled dataset
+│   ├── eval_db.py             runs the analytical queries over the metrics store
 │   ├── session-start-hook.sh  surfaces the backlog into a Claude Code session
 │   └── verify_*.py            the test harnesses
-├── eval/cases.jsonl           labeled evaluation set (blind 3-rater consensus)
+├── eval/
+│   ├── cases.jsonl            labeled evaluation set (blind 3-rater consensus)
+│   ├── schema.sql            metrics-store schema (runs × cases × predictions)
+│   └── queries.sql           analytical queries (window functions, JOINs)
 ├── example/                   a demonstration domain (replace with your own)
 │   ├── CLAUDE.md              the domain's operating manual
 │   ├── writing-rules.md       how pages in this domain are written
@@ -185,6 +189,28 @@ quantify it. Measuring it is what turned a vague worry into a known boundary and
 an evidence-based decision.
 
 Full write-up: **[EVALUATION.md](EVALUATION.md)**.
+
+### Metrics store (SQL)
+
+Eval runs are the one genuinely relational thing in this repo — a time series of
+runs, each scoring the same fixed cases — so they go in SQLite rather than
+another flat file. `make eval-db` records two runs (baseline and the stemming
+variant) and prints the analytical queries in [`eval/queries.sql`](eval/queries.sql):
+per-axis accuracy (JOIN + GROUP BY), the accuracy trend with a run-over-run delta
+(a `LAG` window function), per-tier precision/recall, the confusion matrix, and
+the cases that flipped between the two latest runs.
+
+The window-function trend puts the stemming regression on one row:
+
+```
+run_id  variant   accuracy  delta_vs_prev
+1       baseline  0.6       (none)
+2       stem      0.571     -0.029
+```
+
+Schema and queries are standard SQL ([`eval/schema.sql`](eval/schema.sql),
+[`eval/queries.sql`](eval/queries.sql)); only the `INTEGER PRIMARY KEY`
+declarations change to port to Postgres.
 
 ## Tests
 

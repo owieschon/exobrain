@@ -13,3 +13,6 @@ tools/pending-ingest.txt
 # transient ingest proposals awaiting human review
 tools/staged/*
 !tools/staged/.gitkeep
+
+# generated metrics store (rebuild with make eval-db)
+eval/results.db
