@@ -114,6 +114,37 @@ def main():
         check("guard flags a wiki/ root", consolidate._targets_wiki(BRAIN_DIR / "example" / "wiki") is True)
         check("guard flags a domain root (could create wiki/)", consolidate._targets_wiki(BRAIN_DIR / "example") is True)
         check("guard allows a staging root", consolidate._targets_wiki(tmp) is False)
+
+        # the full agent loop, driven by a simulated API (no key, no network, no cost):
+        # view -> create -> end_turn. Verifies the loop executes memory commands and
+        # threads tool_results back to the model.
+        consolidate.get_api_key = lambda: "test-key"
+        calls = []
+
+        def fake_post(api_key, model, messages):
+            calls.append(list(messages))
+            turn = len(calls)
+            if turn == 1:
+                return {"stop_reason": "tool_use", "content": [
+                    {"type": "tool_use", "id": "t1", "name": "memory",
+                     "input": {"command": "view", "path": "/memories"}}]}
+            if turn == 2:
+                return {"stop_reason": "tool_use", "content": [
+                    {"type": "tool_use", "id": "t2", "name": "memory",
+                     "input": {"command": "create", "path": "/memories/summary.txt",
+                               "file_text": "consolidated\n"}}]}
+            return {"stop_reason": "end_turn", "content": [{"type": "text", "text": "wrote summary.txt"}]}
+
+        out = consolidate.consolidate(tmp, "tidy up", post_fn=fake_post)
+        check("loop returns the model's final text", out == "wrote summary.txt", repr(out))
+        check("loop executed the memory command (file created)",
+              (tmp / "summary.txt").read_text() == "consolidated\n")
+        check("loop made one call per turn (view, create, end_turn)", len(calls) == 3, str(len(calls)))
+        last = calls[-1]
+        check("loop threaded a tool_result back to the model", any(
+            isinstance(m.get("content"), list)
+            and any(isinstance(b, dict) and b.get("type") == "tool_result" for b in m["content"])
+            for m in last))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

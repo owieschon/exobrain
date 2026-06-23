@@ -42,12 +42,19 @@ python3 tools/consolidate.py --root <a staging dir>   # needs ANTHROPIC_API_KEY
 
 ## What is and isn't verified
 
-The memory backend is tested end-to-end against the documented contract with no
-API key (`make test`). The live agent loop in `consolidate.py` is **not** run by
-the test suite — it needs a key and the memory-tool beta, which CI doesn't have —
-so it is verified only against the documented request shape, and it degrades to a
-clean no-op without a key (that path *is* tested). Running it against the live
-API, and any tuning that follows, is left for an environment that has access.
+`make test` covers all of this with no API key:
+
+- the memory backend, end-to-end against the documented contract, including the
+  path-traversal protection;
+- the agent loop in `consolidate.py`, driven by a simulated API (`post_fn` is
+  injectable) that returns canned tool-use turns — the test confirms the loop
+  executes the memory commands and threads results back to the model;
+- the wiki guard, and the no-key degradation.
+
+A live run adds only the real model round-trip. It needs a normal
+`ANTHROPIC_API_KEY` — the memory tool is a standard API tool, not a gated beta —
+so it can be run wherever you have a key; that, and any tuning it suggests, is the
+remaining step.
 
 ## A note on "dreaming"
 
