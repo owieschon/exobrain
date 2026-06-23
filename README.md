@@ -284,7 +284,7 @@ the `INTEGER PRIMARY KEY` changed to an identity column and numeric casts on the
 
 ## Tests
 
-Four assertion harnesses, run together by `make test`:
+Six assertion harnesses, run together by `make test`:
 
 - `verify_auto_ingest.py` — builds a throwaway temp brain and asserts the
   GREEN/YELLOW/RED routing, the slug/no-overwrite safety, and the
@@ -295,6 +295,10 @@ Four assertion harnesses, run together by `make test`:
   contract, the path-traversal and symlink guards, malformed-call handling, and
   the consolidation loop driven by a simulated API.
 - `verify_observability.py` — the logger configuration and the LLM-call trace.
+- `verify_eval.py` — the scorer's metrics against hand-computed values, the
+  metrics-store writes, and that every analytical query in `queries.sql` runs.
+- `verify_distill.py` — the capture producer, including the round-trip through
+  the gate's parser (the producer/consumer contract) and atomic marker writes.
 
 `make test` runs just the harnesses (no extra install). `make check` is
 `make test` plus a `ruff` lint, so it additionally needs the dev extra
