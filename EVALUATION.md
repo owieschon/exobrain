@@ -145,6 +145,7 @@ a backend is wired in.
 make eval                      # baseline, deterministic path
 EXOBRAIN_STEM=1 make eval       # the stemming variant above (regression)
 python3 tools/eval.py --json    # machine-readable summary
+make eval-db                   # record both runs to SQLite + print the analytical queries
 ```
 
 With `ANTHROPIC_API_KEY` set, the same command exercises the LLM-escalation path,
