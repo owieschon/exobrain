@@ -205,10 +205,32 @@ SUPERSEDE_SIGNALS = [
 # Token similarity primitives
 # ---------------------------------------------------------------------------
 
+# Experiment hook, OFF by default — the shipped tokenizer does not stem. Setting
+# EXOBRAIN_STEM=1 enables light suffix stemming so the eval set can reproduce the
+# measured stemming variant (which regressed; see EVALUATION.md). Not production
+# behavior, kept only so the result is reproducible.
+_STEM = os.environ.get("EXOBRAIN_STEM") == "1"
+
+
+def _stem(t: str) -> str:
+    if len(t) > 5 and t.endswith("ing"):
+        t = t[:-3]
+    elif len(t) > 4 and t.endswith("ed"):
+        t = t[:-2]
+    elif len(t) > 4 and t.endswith("es"):
+        t = t[:-2]
+    elif len(t) > 4 and t.endswith("s") and not t.endswith("ss"):
+        t = t[:-1]
+    if len(t) > 4 and t.endswith("e"):
+        t = t[:-1]
+    return t
+
+
 def tokenize(text: str) -> set:
     """Tokenize into a set of meaningful lowercase tokens (3+ chars, no stopwords)."""
     tokens = re.findall(r"[a-z][a-z0-9-]+", text.lower())
-    return {t for t in tokens if t not in STOPWORDS and len(t) > 2}
+    out = {t for t in tokens if t not in STOPWORDS and len(t) > 2}
+    return {_stem(t) for t in out} if _STEM else out
 
 
 def jaccard(set_a: set, set_b: set) -> float:
