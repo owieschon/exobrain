@@ -8,6 +8,7 @@ Tests every command (view/create/str_replace/insert/delete/rename), the
 documented response/error strings, and the path-traversal protection the docs
 require.
 """
+import os
 import shutil
 import sys
 import tempfile
@@ -102,6 +103,39 @@ def main():
         # unknown command
         r = mb.handle({"command": "frobnicate", "path": "/memories"})
         check("unknown command is reported", r.startswith("Error: Unknown memory command"), r)
+
+        # --- malformed calls return an error string, never raise (degrade-never-crash) ---
+        # A model can emit an incomplete tool call; one bad call must not abort the run.
+        r = mb.handle({"command": "view"})  # missing required "path"
+        check("missing required field returns an error string (no crash)",
+              isinstance(r, str) and r.startswith("Error: missing required parameter"), r)
+        r = mb.handle({"command": "str_replace", "path": "/memories/notes.txt", "old_str": "a"})  # no new_str
+        check("partially-malformed call returns an error string",
+              r.startswith("Error: missing required parameter"), r)
+        r = mb.handle({"command": "view", "path": "/memories/notes.txt", "view_range": "nope"})  # bad type
+        check("wrong-typed parameter returns an error string", r.startswith("Error: invalid parameters"), r)
+
+        # view_range with a 0/sub-1 start is rejected, not silently wrong
+        r = mb.handle({"command": "view", "path": "/memories/notes.txt", "view_range": [0, 2]})
+        check("view_range start=0 is rejected (1-based)", "1-based" in r, r)
+
+        # --- security: a symlink must not escape the root (the docs' 'tested' claim) ---
+        outside = tmp.parent / f"mem-secret-{tmp.name}.txt"
+        outside.write_text("SECRET")
+        link = tmp / "link.txt"
+        try:
+            os.symlink(outside, link)
+            r = mb.handle({"command": "view", "path": "/memories/link.txt"})
+            check("rejects a symlink that escapes the root",
+                  "outside the allowed /memories" in r, r)
+            # a dangling symlink in the dir must not crash a directory view
+            outside.unlink()
+            r = mb.handle({"command": "view", "path": "/memories"})
+            check("directory view tolerates a dangling symlink (no crash)",
+                  isinstance(r, str) and r.startswith("Here're the files"), r[:40])
+        finally:
+            link.unlink(missing_ok=True)
+            outside.unlink(missing_ok=True)
 
         # consolidate.py degrades to a clean no-op without an API key (no network call)
         import consolidate

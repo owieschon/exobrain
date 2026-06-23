@@ -63,15 +63,25 @@ class MemoryBackend:
 
     # -- commands ----------------------------------------------------------
     def handle(self, tool_input: dict) -> str:
-        """Dispatch one memory tool call and return its result string."""
+        """Dispatch one memory tool call and return its result string.
+
+        A malformed call (missing or wrong-typed fields) returns an error string
+        rather than raising, so the model can self-correct and one bad tool call
+        can't abort a whole consolidation run — the degrade-never-crash contract
+        the memory tool relies on.
+        """
+        command = tool_input.get("command")
+        handler = getattr(self, f"_cmd_{command}", None)
+        if handler is None:
+            return f"Error: Unknown memory command {command!r}"
         try:
-            command = tool_input.get("command")
-            handler = getattr(self, f"_cmd_{command}", None)
-            if handler is None:
-                return f"Error: Unknown memory command {command!r}"
             return handler(tool_input)
         except MemoryError as exc:
             return str(exc)
+        except KeyError as exc:
+            return f"Error: missing required parameter {exc} for command {command!r}"
+        except (ValueError, TypeError) as exc:
+            return f"Error: invalid parameters for command {command!r}: {exc}"
 
     def _cmd_view(self, t: dict) -> str:
         vpath = t["path"]
@@ -89,7 +99,11 @@ class MemoryBackend:
                 if depth > 2 or child.name.startswith(".") or "node_modules" in child.parts:
                     continue
                 rel = child.relative_to(real).as_posix()
-                lines.append(f"{_human_size(child.stat().st_size)}\t{vpath.rstrip('/')}/{rel}")
+                try:
+                    size = _human_size(child.stat().st_size)
+                except OSError:
+                    continue  # skip a dangling symlink / unreadable entry rather than crash
+                lines.append(f"{size}\t{vpath.rstrip('/')}/{rel}")
             return "\n".join(lines)
         text = real.read_text()
         if len(text.splitlines()) > _MAX_LINES:
@@ -97,6 +111,8 @@ class MemoryBackend:
         view_range = t.get("view_range")
         if view_range:
             start, end = view_range
+            if start < 1:
+                return f"Error: Invalid `view_range` start {start}; line numbers are 1-based."
             chosen = text.splitlines()[start - 1:end]
             body = "\n".join(f"{i:>6}\t{line}" for i, line in enumerate(chosen, start))
         else:
