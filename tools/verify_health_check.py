@@ -328,6 +328,38 @@ def test_real_full_audit():
         )
 
 
+def test_staged_proposal_delta_resolves_domain():
+    """The README's promote-time lint runs `--delta` on a staged proposal. A
+    staged file lives under tools/staged/ (outside any domain) but is named
+    `{domain}__{slug}.md`, so the domain must resolve from the slug — otherwise the
+    documented command FAILs on every healthy proposal."""
+    import importlib
+
+    import health_check as hc
+    importlib.reload(hc)  # real paths/DOMAINS (the shipped 'example' domain)
+
+    staged_dir = hc.BRAIN_DIR / "tools" / "staged"
+    staged_dir.mkdir(parents=True, exist_ok=True)
+    proposal = staged_dir / "example__hc-verify-proposal.md"
+    proposal.write_text(
+        "# A self-contained proposal\n\nBody text with no wikilinks.\n\n"
+        "## See also\n\n## Sources\n- Established practice.\n"
+    )
+    try:
+        report("staged proposal resolves its domain from the slug prefix",
+               hc.get_domain_for_page(proposal) == "example",
+               str(hc.get_domain_for_page(proposal)))
+        result = hc.run_health_check(str(proposal), mode="delta")
+        no_domain_error = not any(
+            "determine domain" in i.get("detail", "") for i in result["issues"])
+        report("staged proposal --delta does not FAIL on 'cannot determine domain'",
+               no_domain_error, str([i.get("detail") for i in result["issues"]]))
+        report("a clean staged proposal passes the delta gate (README lint works)",
+               result["deterministic_pass"] is True, str(result["issues"]))
+    finally:
+        proposal.unlink(missing_ok=True)
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -360,6 +392,10 @@ def main():
 
     print("Real full audit (example domain):")
     test_real_full_audit()
+    print()
+
+    print("Staged-proposal delta lint (the README promote-time check):")
+    test_staged_proposal_delta_resolves_domain()
     print()
 
     print("=" * 55)

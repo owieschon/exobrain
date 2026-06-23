@@ -323,6 +323,18 @@ def check_contradiction(draft: dict, domain: str, verbose: bool = False) -> tupl
          documented in EVALUATION.md (semantic-contradiction: 0/5 without a key,
          5/5 with one). Nothing is published either way — every tier is staged
          for a human.
+
+    This three-signal sequence is implemented at three call sites — here (draft
+    vs page, at ingest) and twice in health_check.stage_contradictions (page vs
+    page, at audit time, in delta and full modes). They are NOT unified because
+    they are deliberately *different calibrations*: draft-vs-page uses the
+    COVERAGE_CONTRADICTION/SUPERSEDE thresholds; page-vs-page shares far more
+    domain vocabulary, so it uses the higher FULL_AUDIT_* thresholds and
+    bidirectional coverage, or pages would flag each other constantly. They share
+    primitives (the signal lists, draft_coverage, the small-model check), not the
+    branch structure. The cost is real: a *new* signal class must be added to all
+    three sites, or the gate and the audit drift. That tradeoff is accepted here
+    over a 5-parameter comparator that would over-abstract the divergence away.
     """
     candidates = find_candidate_pages(draft, domain, top_n=5)
     draft_lesson_lower = draft["lesson"].lower()
