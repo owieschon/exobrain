@@ -86,7 +86,7 @@ COVERAGE_CONTRADICTION = 0.18  # minimum coverage to check contradiction signals
 COVERAGE_SUPERSEDE = 0.15      # minimum coverage to check supersede signals
 
 TITLE_OVERLAP_THRESHOLD = 0.45 # slug/cluster title similarity for overlap
-HAIKU_AMBIGUITY_FLOOR = 0.12   # coverage range where Haiku gets consulted
+AMBIGUITY_FLOOR = 0.12   # coverage range where the small model gets consulted
 
 
 # ---------------------------------------------------------------------------
@@ -259,24 +259,24 @@ def find_candidate_pages(
 
 
 # ---------------------------------------------------------------------------
-# Haiku helper for ambiguous contradiction checks (optional; degrades to None).
+# Small-model helper for ambiguous contradiction checks (optional; degrades to None).
 # ---------------------------------------------------------------------------
 
-def call_haiku(prompt: str) -> Optional[str]:
+def call_small_model(prompt: str) -> Optional[str]:
     """Ask the small model a yes/no contradiction question. None if unavailable."""
     return call_anthropic(
         prompt,
         max_tokens=300,
         timeout=30,
-        error_prefix="Haiku API error",
+        error_prefix="small-model API error",
         step="gate-contradiction",
     )
 
 
-def haiku_contradiction_check(
+def small_model_contradiction_check(
     draft_lesson: str, page_slug: str, page_content: str
 ) -> Optional[bool]:
-    """Ask Haiku whether the draft contradicts the existing page.
+    """Ask the small model whether the draft contradicts the existing page.
 
     Returns True (contradiction), False (compatible), or None (API unavailable).
     """
@@ -295,7 +295,7 @@ def haiku_contradiction_check(
         'Answer exactly "YES" or "NO" on the first line, '
         "then explain in one sentence."
     )
-    response = call_haiku(prompt)
+    response = call_small_model(prompt)
     if response is None:
         return None
     first_line = response.strip().split("\n")[0].strip().upper()
@@ -315,8 +315,14 @@ def check_contradiction(draft: dict, domain: str, verbose: bool = False) -> tupl
       1. Find candidate pages by draft-coverage (asymmetric token overlap).
       2. For candidates above COVERAGE_CONTRADICTION, check negation signals.
       3. For candidates above COVERAGE_SUPERSEDE, check supersede signals.
-      4. For ambiguous cases, call Haiku if available.
-      5. Conservative: ambiguous without Haiku -> RED.
+      4. For ambiguous-coverage cases, consult the small model if a key is present.
+      5. Without a key (or if the model says no), an ambiguous case falls THROUGH
+         to the overlap/net-new path — it is not auto-escalated to RED. So a
+         contradiction that only a semantic check would catch can land as GREEN
+         when no key is present. This bag-of-words ceiling is measured and
+         documented in EVALUATION.md (semantic-contradiction: 0/5 without a key,
+         5/5 with one). Nothing is published either way — every tier is staged
+         for a human.
     """
     candidates = find_candidate_pages(draft, domain, top_n=5)
     draft_lesson_lower = draft["lesson"].lower()
@@ -346,24 +352,24 @@ def check_contradiction(draft: dict, domain: str, verbose: bool = False) -> tupl
                 cand["slug"],
             )
 
-        # Signal 3: ambiguous range, consult Haiku if available
-        if HAIKU_AMBIGUITY_FLOOR < cov < COVERAGE_OVERLAP:
+        # Signal 3: ambiguous range, consult the small model if available
+        if AMBIGUITY_FLOOR < cov < COVERAGE_OVERLAP:
             if verbose:
                 print(
                     f"    Ambiguous coverage ({cov:.2f}) with "
-                    f"[[{cand['slug']}]], consulting Haiku..."
+                    f"[[{cand['slug']}]], consulting the small model..."
                 )
-            result = haiku_contradiction_check(
+            result = small_model_contradiction_check(
                 draft["lesson"], cand["slug"], cand["text"]
             )
             if result is True:
                 return (
                     True,
-                    f"Haiku confirmed contradiction against [[{cand['slug']}]] "
+                    f"small model confirmed contradiction against [[{cand['slug']}]] "
                     f"(coverage={cov:.2f}).",
                     cand["slug"],
                 )
-            # Haiku unavailable or said NO: fall through to overlap check
+            # model unavailable or said NO: fall through to overlap check
 
     return (False, "", "")
 
@@ -461,7 +467,13 @@ def classify(draft_path: Path, verbose: bool = False) -> tuple:
       3. AMBIGUOUS HOME -> YELLOW
       4. Default -> GREEN
 
-    Conservative escalation: uncertainty always goes UP in severity.
+    Escalation is conservative for *detected* conflicts: a negation/supersede
+    signal with topic coverage, or a small-model contradiction check, sends a
+    draft UP to RED. It is not unconditionally conservative — a contradiction that
+    needs a semantic judgment falls through to GREEN when no API key is present
+    (the measured bag-of-words ceiling; see EVALUATION.md). Every tier is staged
+    for human review, so this changes how a draft is *presented*, not whether a
+    human sees it.
     """
     draft = parse_draft(draft_path)
     domain = draft["domain"]

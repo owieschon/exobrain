@@ -407,22 +407,9 @@ def read_transcript_content(path: Path, max_lines: int = MAX_TRANSCRIPT_LINES) -
     return "\n\n".join(parts)
 
 
-def read_dreaming_config(domain_path: Path) -> Optional[str]:
-    """Read a domain's dreaming.md for its watch-triggers."""
-    p = domain_path / "dreaming.md"
-    return p.read_text() if p.exists() else None
-
-
-def build_distillation_prompt(
-    transcript_content: str,
-    dreaming_configs: dict[str, Optional[str]],
-) -> str:
+def build_distillation_prompt(transcript_content: str) -> str:
     """Build the prompt sent to the distillation model."""
     domain_enum = "|".join(DOMAINS) or "default"
-    domain_section = ""
-    for domain, config in dreaming_configs.items():
-        if config:
-            domain_section += f"\n### {domain}\n{config}\n"
 
     return f"""You are a session distiller for a plain-text knowledge base ("exobrain").
 
@@ -446,10 +433,9 @@ EPHEMERAL (skip these):
 - Debugging steps that only apply to one specific bug
 - File paths, variable names, or other implementation details with no transferable lesson
 
-## Domain watch-triggers
+## Domain routing
 
-Each domain watches for specific types of insights. Route each capture to the most relevant domain.
-{domain_section}
+Route each capture to the most relevant domain ({domain_enum}).
 
 ## Output format
 
@@ -606,12 +592,7 @@ def distill_session(
             save_marker(marker)
         return 0
 
-    # Load dreaming configs
-    dreaming_configs: dict[str, Optional[str]] = {}
-    for domain, domain_path in DOMAINS.items():
-        dreaming_configs[domain] = read_dreaming_config(domain_path)
-
-    prompt = build_distillation_prompt(content, dreaming_configs)
+    prompt = build_distillation_prompt(content)
 
     if dry_run:
         print(f"    [DRY RUN] Would call API with {len(prompt):,} char prompt")

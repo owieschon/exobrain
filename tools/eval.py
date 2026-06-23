@@ -100,6 +100,9 @@ def score(cases: list, results: list) -> dict:
     failures = []
     for case, pred in zip(cases, results):
         exp = case["expected_tier"]
+        if exp not in TIERS:  # cases.jsonl is hand-authored; a typo should name itself
+            raise ValueError(
+                f"case {case.get('id')!r} has invalid expected_tier {exp!r}; must be one of {TIERS}")
         confusion[exp][pred] += 1
         ax = case.get("axis", "?")
         per_axis.setdefault(ax, {"correct": 0, "total": 0})

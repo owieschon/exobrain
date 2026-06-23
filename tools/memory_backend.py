@@ -144,10 +144,10 @@ class MemoryBackend:
         if count == 0:
             return f"No replacement was performed, old_str `{old}` did not appear verbatim in {vpath}."
         if count > 1:
-            hits = [str(i) for i, ln in enumerate(text.splitlines(), 1) if old in ln]
+            hits = sorted({i for i, ln in enumerate(text.splitlines(), 1) if old in ln})
             return (
                 f"No replacement was performed. {count} occurrences of old_str `{old}` "
-                f"(on lines: {', '.join(hits)}). Please ensure it is unique"
+                f"(on line(s): {', '.join(map(str, hits))}). Please ensure it is unique"
             )
         real.write_text(text.replace(old, new))
         return "The memory file has been edited.\n" + _numbered(real.read_text())

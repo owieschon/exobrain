@@ -126,7 +126,7 @@ ls tools/staged/ && cat tools/staged/*.md
 # 4. Run the drift audit over the example wiki
 BRAIN_DIR="$PWD" python3 tools/health_check.py
 
-# 5. Run the tests (all four harnesses; no extra install needed)
+# 5. Run the tests (all six harnesses; no extra install needed)
 make test
 ```
 

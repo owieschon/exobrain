@@ -70,7 +70,7 @@ def main():
         mb.handle({"command": "create", "path": "/memories/dup.txt", "file_text": "x\nx\n"})
         r = mb.handle({"command": "str_replace", "path": "/memories/dup.txt", "old_str": "x", "new_str": "y"})
         check("str_replace duplicate is rejected with a count that matches the lines",
-              "2 occurrences" in r and "lines: 1, 2" in r, r)
+              "2 occurrences" in r and "line(s): 1, 2" in r, r)
 
         # insert
         r = mb.handle({"command": "insert", "path": "/memories/notes.txt", "insert_line": 1, "insert_text": "MID\n"})

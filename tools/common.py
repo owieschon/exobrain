@@ -205,9 +205,11 @@ def call_anthropic(
     step: str = "llm",
 ) -> Optional[str]:
     """Call the Anthropic messages API. Returns the response text, or None on
-    failure (no API key, or a transport/API error, which is logged via the
-    ``exobrain`` logger). Every call is recorded to the LLM-call trace
-    (``trace_llm_call``) with its model, token usage, latency, and outcome.
+    failure (a transport/API error, which is logged via the ``exobrain`` logger).
+    With no API key it returns None immediately, warns once, and makes no request.
+    Every *attempted* request is recorded to the LLM-call trace (``trace_llm_call``)
+    with its model, token usage, latency, and outcome — the no-key skip is not a
+    request, so it isn't traced.
 
     Args:
         prompt: the user-message content.
