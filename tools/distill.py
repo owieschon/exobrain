@@ -58,10 +58,13 @@ def load_marker() -> dict:
 
 
 def save_marker(marker: dict):
-    """Save the distilled-sessions.json marker file. Creates parent dir if needed."""
+    """Save distilled-sessions.json atomically (tmp + os.replace), matching the
+    other runtime-state writers, so a crash mid-write can't corrupt it."""
     MARKER_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(MARKER_FILE, "w") as f:
+    tmp = MARKER_FILE.with_suffix(".tmp")
+    with open(tmp, "w") as f:
         json.dump(marker, f, indent=2, sort_keys=True)
+    os.replace(str(tmp), str(MARKER_FILE))
 
 
 # ---------------------------------------------------------------------------
