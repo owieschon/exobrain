@@ -249,8 +249,9 @@ Eval runs are the one genuinely relational thing here — a time series over the
 same fixed cases — so they go in SQLite, not another flat file. `make eval-db`
 records runs and prints the analytical queries in
 [`eval/queries.sql`](eval/queries.sql): per-axis accuracy, a run-over-run accuracy
-trend (a `LAG` window function), per-tier precision/recall, and the confusion
-matrix. Why SQL here but files for the knowledge: **[DECISIONS.md](DECISIONS.md)**.
+trend (a `LAG` window function), per-tier precision/recall, the confusion matrix,
+and the cases that flipped between the two latest runs. Why SQL here but files for
+the knowledge: **[DECISIONS.md](DECISIONS.md)**.
 
 ## Tests
 
@@ -262,8 +263,8 @@ contract with its path-traversal and symlink guards, the eval scorer and its SQL
 queries, the distill producer→gate-parser round-trip, and the observability seam —
 all with no API key (model calls degrade to a no-op).
 
-`make check` adds a `ruff` lint (needs the dev extra, `pip install -e '.[dev]'`);
-CI runs both on Python 3.9, 3.11, and 3.13.
+`make check` adds a `ruff` lint (needs the dev extra, `pip install -e '.[dev]'`).
+CI runs the harnesses on Python 3.9, 3.11, and 3.13, and the `ruff` lint on 3.11.
 
 ## Acknowledgements
 

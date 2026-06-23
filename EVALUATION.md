@@ -153,7 +153,7 @@ provide. Two paths, both real:
    default, so it belongs behind an optional backend, not in the core.
 2. **Always-available LLM escalation.** The classifier already escalates to a
    small model — but only in a *middle* band of lexical coverage
-   (`HAIKU_AMBIGUITY_FLOOR < coverage < COVERAGE_OVERLAP`). Semantic cases have
+   (`AMBIGUITY_FLOOR < coverage < COVERAGE_OVERLAP`). Semantic cases have
    coverage ≈ 0, which is *below* the floor, so they never reach the model. The
    gate is keyed on the very signal that is failing. Making the GREEN-candidate
    path consult a semantic backend is the structural fix.

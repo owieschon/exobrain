@@ -187,6 +187,19 @@ def main():
             "# T\n\n**Why it matters:** x\n\n**Suggested domain:** demo\n\n## Lesson\nthe body here\n")
         report("lesson parses without a blank line after the heading",
                ai.parse_draft(lesson_draft).get("lesson") == "the body here")
+
+        # --- cross-domain basename collision must not silently drop a draft ---
+        # distill dedups capture filenames per-domain, so two domains can hold the
+        # same {date}-{slug}.md. The ingest-state key must be domain-qualified, or
+        # the second draft is marked already-processed and never reaches the gate.
+        a = tmp / "demo" / "raw" / "session-captures" / "2026-01-01-dup.md"
+        b = tmp / "other-domain" / "raw" / "session-captures" / "2026-01-01-dup.md"
+        report("same-basename drafts in two domains get distinct ingest-state keys",
+               ai.draft_key(a) != ai.draft_key(b)
+               and "demo/" in ai.draft_key(a) and "other-domain/" in ai.draft_key(b),
+               f"{ai.draft_key(a)} vs {ai.draft_key(b)}")
+        report("a draft is not marked processed by a same-basename draft elsewhere",
+               ai.draft_key(b) not in {ai.draft_key(a): "processed"})
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
