@@ -177,6 +177,32 @@ own operating manual (`CLAUDE.md`), its own wiki, no bleed between domains.
 - **Human-gated.** No tool writes to `wiki/`. The gate only ever stages
   proposals; a person promotes them.
 
+## Security and trust boundaries
+
+This is single-user, local-first software, but it does feed untrusted text to an
+LLM, so the boundaries are worth stating plainly:
+
+- **Prompt injection is a real surface, and the human gate is the backstop.**
+  Session transcripts and existing wiki pages are untrusted input, and they reach
+  the model (in `distill.py` and the gate's contradiction check). A crafted
+  transcript or page could try to steer a summary or flip a YES/NO verdict. The
+  containment is structural: nothing the model produces is auto-applied — every
+  result is *staged for human review* (the gate never writes `wiki/`; the
+  consolidation path refuses a `wiki/` root). As defense-in-depth, untrusted text
+  is fenced and labelled "data, not instructions" before it enters a prompt
+  (`common.fence_untrusted`). Fencing lowers the odds; the gate is what makes a
+  successful injection harmless.
+- **No secrets in the repo or its history.** The API key is read from the env or
+  the macOS Keychain, never written to disk or logged. Runtime state (captures,
+  staged proposals, the metrics DB) is gitignored.
+- **SQL is parameterized or static** (`?` placeholders; no string-built queries).
+- **The memory-tool backend is path-traversal hardened** — every path must
+  resolve inside its root, symlinks included (`memory_backend.py`, tested).
+
+What this does *not* do: multi-tenant isolation (it's single-user, one local
+filesystem), or sandbox the optional consolidation agent's file operations within
+its staging root beyond the wiki guard.
+
 ## Evaluation
 
 The gate's tiering is a heuristic standing in for a semantic judgment, so it is

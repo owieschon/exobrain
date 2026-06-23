@@ -22,7 +22,7 @@ backend directly:
 
 - `tools/memory_backend.py` — a faithful implementation of the documented command
   contract, including the path-traversal protection the docs require. Pure stdlib,
-  no network. Covered by `verify_memory_backend.py` (29 checks).
+  no network. Covered by `verify_memory_backend.py`.
 - `tools/consolidate.py` — the agent loop: it calls the Messages API (stdlib
   `urllib`, no SDK) with the memory tool enabled and runs each tool call through
   the backend until the model finishes.
