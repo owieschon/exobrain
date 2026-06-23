@@ -33,8 +33,7 @@ Tier distribution: 16 YELLOW, 10 RED, 9 GREEN.
 
 The labeling was an automated multi-agent pass, so the committed, verifiable
 artifact is each case's recorded `agreement` — not the individual rater
-transcripts. The consensus guards against me hand-writing labels that flatter my
-own classifier; it is not a claim of human annotation.
+transcripts, and not a claim of human annotation.
 
 The semantic cases are the hard ones: e.g. a draft on "dogpiles" against a page
 on "thundering herd", or "penalizing bushy models" against "regularization" —
