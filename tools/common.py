@@ -243,7 +243,7 @@ def jaccard(set_a: set, set_b: set) -> float:
 def draft_coverage(draft_tokens: set, page_tokens: set) -> float:
     """Fraction of the draft's tokens that also appear in the page.
 
-    Asymmetric on purpose: it measures "is this draft about the same topic as
+    Deliberately asymmetric: it measures "is this draft about the same topic as
     this page" without being penalized when the page is much longer than the
     draft.
     """

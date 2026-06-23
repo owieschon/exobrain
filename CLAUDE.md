@@ -25,7 +25,7 @@ database, no app. Git is the store and the audit trail.
     a `--delta` mode to check a single page (e.g. before a human approves it).
 - `common.py` is the shared base every tool imports.
 
-## Load-bearing conventions
+## Conventions
 - **Pure stdlib only.** `urllib`, not `requests`/`httpx`. No `anthropic` SDK.
 - **Paths derive from `common.BRAIN_DIR`** (this file's repo root, overridable
   with the `BRAIN_DIR` env var). Do not hardcode `Path.home()`.
