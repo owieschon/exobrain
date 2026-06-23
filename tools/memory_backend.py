@@ -113,7 +113,12 @@ class MemoryBackend:
             start, end = view_range
             if start < 1:
                 return f"Error: Invalid `view_range` start {start}; line numbers are 1-based."
-            chosen = text.splitlines()[start - 1:end]
+            file_lines = text.splitlines()
+            if end == -1:  # documented "read to end" sentinel
+                end = len(file_lines)
+            if end < start:
+                return f"Error: Invalid `view_range` [{start}, {end}]; end must be >= start (or -1)."
+            chosen = file_lines[start - 1:end]
             body = "\n".join(f"{i:>6}\t{line}" for i, line in enumerate(chosen, start))
         else:
             body = _numbered(text)
@@ -141,8 +146,8 @@ class MemoryBackend:
         if count > 1:
             hits = [str(i) for i, ln in enumerate(text.splitlines(), 1) if old in ln]
             return (
-                f"No replacement was performed. Multiple occurrences of old_str `{old}` "
-                f"in lines: {', '.join(hits)}. Please ensure it is unique"
+                f"No replacement was performed. {count} occurrences of old_str `{old}` "
+                f"(on lines: {', '.join(hits)}). Please ensure it is unique"
             )
         real.write_text(text.replace(old, new))
         return "The memory file has been edited.\n" + _numbered(real.read_text())

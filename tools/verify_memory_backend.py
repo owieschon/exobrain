@@ -69,7 +69,8 @@ def main():
         check("str_replace not-found message", "did not appear verbatim" in r, r)
         mb.handle({"command": "create", "path": "/memories/dup.txt", "file_text": "x\nx\n"})
         r = mb.handle({"command": "str_replace", "path": "/memories/dup.txt", "old_str": "x", "new_str": "y"})
-        check("str_replace duplicate is rejected", "Multiple occurrences" in r and "lines: 1, 2" in r, r)
+        check("str_replace duplicate is rejected with a count that matches the lines",
+              "2 occurrences" in r and "lines: 1, 2" in r, r)
 
         # insert
         r = mb.handle({"command": "insert", "path": "/memories/notes.txt", "insert_line": 1, "insert_text": "MID\n"})
@@ -115,9 +116,15 @@ def main():
         r = mb.handle({"command": "view", "path": "/memories/notes.txt", "view_range": "nope"})  # bad type
         check("wrong-typed parameter returns an error string", r.startswith("Error: invalid parameters"), r)
 
-        # view_range with a 0/sub-1 start is rejected, not silently wrong
+        # view_range edge cases: start<1 rejected; -1 reads to end; end<start rejected
         r = mb.handle({"command": "view", "path": "/memories/notes.txt", "view_range": [0, 2]})
         check("view_range start=0 is rejected (1-based)", "1-based" in r, r)
+        mb.handle({"command": "create", "path": "/memories/range.txt", "file_text": "l1\nl2\nl3\nl4\nl5\n"})
+        r = mb.handle({"command": "view", "path": "/memories/range.txt", "view_range": [2, -1]})
+        check("view_range end=-1 reads through the last line",
+              "\n     5\tl5" in r and "\n     1\t" not in r, repr(r))
+        r = mb.handle({"command": "view", "path": "/memories/range.txt", "view_range": [4, 2]})
+        check("view_range end<start is rejected", "end must be >= start" in r, r)
 
         # --- security: a symlink must not escape the root (the docs' 'tested' claim) ---
         outside = tmp.parent / f"mem-secret-{tmp.name}.txt"
