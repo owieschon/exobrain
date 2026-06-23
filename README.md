@@ -77,15 +77,18 @@ exobrain/
 │   ├── distill.py             transcripts → capture drafts
 │   ├── auto_ingest.py         the gate: classify + stage for review
 │   ├── health_check.py        the 7-stage drift audit
+│   ├── eval.py                 scores the gate against the labeled dataset
 │   ├── session-start-hook.sh  surfaces the backlog into a Claude Code session
 │   └── verify_*.py            the test harnesses
+├── eval/cases.jsonl           labeled evaluation set (blind 3-rater consensus)
 ├── example/                   a demonstration domain (replace with your own)
 │   ├── CLAUDE.md              the domain's operating manual
 │   ├── writing-rules.md       how pages in this domain are written
 │   ├── wiki/                  curated, cross-linked pages (the output)
 │   ├── raw/                   the immutable junk drawer + session-captures/
 │   └── outputs/               answers + health-checks/
-├── Makefile                   `make check` = lint + tests
+├── EVALUATION.md              how the gate is measured, and its honest ceiling
+├── Makefile                   `make check` = lint + tests; `make eval` = score
 └── pyproject.toml             ruff config; no runtime dependencies
 ```
 
@@ -162,6 +165,24 @@ own operating manual (`CLAUDE.md`), its own wiki, no bleed between domains.
   this step". The deterministic parts keep working offline.
 - **Human-gated.** No tool writes to `wiki/`. The gate only ever stages
   proposals; a person promotes them.
+
+## Evaluation
+
+The gate's tiering is a heuristic standing in for a semantic judgment, so it is
+measured rather than trusted. `make eval` scores it against `eval/cases.jsonl` —
+35 cases labeled by three independent blind raters (consensus is ground truth, so
+the labels reflect *meaning*, not the word overlap the classifier happens to use).
+
+The result is a clean, honest boundary: **0.60 accuracy overall, but 15/15 on
+lexical relationships and 1/10 on semantic ones.** When a draft duplicates a page
+in different words ("dogpile" vs. "thundering herd"), the matcher sees no overlap
+and waves it through. That is the ceiling of bag-of-words, not a tuning bug — a
+stemming variant was measured and *regressed* it (0.60 → 0.57), confirming the
+gap is semantic and the real fix is a semantic backend (embeddings or always-on
+LLM escalation), with the harness already wired to quantify it.
+
+The point isn't the score; it's that the score exists, surfaces the real failure
+mode, and drove a decision on evidence. Full write-up: **[EVALUATION.md](EVALUATION.md)**.
 
 ## Tests
 
