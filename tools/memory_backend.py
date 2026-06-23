@@ -27,9 +27,9 @@ _MAX_LINES = 999_999
 
 def _human_size(n: int) -> str:
     size = float(n)
-    for unit in ("", "K", "M", "G"):
+    for unit in ("B", "K", "M", "G"):
         if size < 1024 or unit == "G":
-            return f"{size:.1f}{unit}" if unit else f"{int(size)}"
+            return f"{size:.0f}B" if unit == "B" else f"{size:.1f}{unit}"
         size /= 1024
     return f"{size:.1f}G"
 
