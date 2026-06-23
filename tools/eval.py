@@ -24,9 +24,13 @@ Usage:
 """
 import argparse
 import json
+import os
 import shutil
+import sqlite3
+import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 _TOOLS_DIR = Path(__file__).resolve().parent
@@ -158,11 +162,55 @@ def print_report(summary: dict, llm_active: bool) -> None:
             print(f"    [{f['axis']}] {f['id']}: expected {f['expected']}, got {f['predicted']}")
 
 
+DEFAULT_DB = _REPO_ROOT / "eval" / "results.db"
+
+
+def _git_sha() -> str:
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(_REPO_ROOT), capture_output=True, text=True, timeout=5,
+        )
+        return out.stdout.strip() if out.returncode == 0 else ""
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return ""
+
+
+def record_run(db_path: Path, summary: dict, cases: list, results: list) -> int:
+    """Persist one run to the SQLite metrics store and return its run_id."""
+    variant = "stem" if os.environ.get("EXOBRAIN_STEM") == "1" else "baseline"
+    con = sqlite3.connect(str(db_path))
+    try:
+        con.executescript((_REPO_ROOT / "eval" / "schema.sql").read_text())
+        con.executemany(
+            "INSERT OR IGNORE INTO cases(case_id, axis, expected_tier) VALUES (?, ?, ?)",
+            [(c["id"], c.get("axis", "?"), c["expected_tier"]) for c in cases],
+        )
+        cur = con.execute(
+            "INSERT INTO runs(created_at, git_sha, variant, llm_active, n_cases, accuracy) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (datetime.now(timezone.utc).isoformat(), _git_sha(), variant,
+             int(summary["llm_active"]), summary["n"], summary["accuracy"]),
+        )
+        run_id = cur.lastrowid
+        con.executemany(
+            "INSERT INTO predictions(run_id, case_id, predicted_tier, correct) VALUES (?, ?, ?, ?)",
+            [(run_id, c["id"], pred, int(pred == c["expected_tier"]))
+             for c, pred in zip(cases, results)],
+        )
+        con.commit()
+        return run_id
+    finally:
+        con.close()
+
+
 def main():
     ap = argparse.ArgumentParser(description="Evaluate the gate classifier against a labeled dataset.")
     ap.add_argument("--cases", default=str(DEFAULT_CASES), help="path to cases.jsonl")
     ap.add_argument("--json", action="store_true", help="emit a machine-readable summary")
     ap.add_argument("--min-accuracy", type=float, default=None, help="exit 1 if accuracy is below this")
+    ap.add_argument("--record", action="store_true", help="persist this run to the SQLite metrics store")
+    ap.add_argument("--db", default=str(DEFAULT_DB), help="metrics-store path for --record")
     args = ap.parse_args()
 
     cases = load_cases(Path(args.cases))
@@ -179,6 +227,10 @@ def main():
 
     summary = score(cases, results)
     summary["llm_active"] = llm_active
+
+    if args.record:
+        run_id = record_run(Path(args.db), summary, cases, results)
+        print(f"recorded run {run_id} ({summary['accuracy']:.3f}) to {args.db}", file=sys.stderr)
 
     if args.json:
         print(json.dumps(summary, indent=2))
