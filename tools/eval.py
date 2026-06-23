@@ -186,8 +186,15 @@ def record_run(db_path: Path, summary: dict, cases: list, results: list) -> int:
     try:
         con.execute("PRAGMA foreign_keys = ON")  # SQLite ignores REFERENCES unless this is set
         con.executescript((_REPO_ROOT / "eval" / "schema.sql").read_text())
+        # Upsert (not OR IGNORE): if cases.jsonl was relabeled between runs against
+        # a persistent db, the stored expected_tier must refresh — otherwise the
+        # confusion matrix (joined on the stale label) would silently disagree with
+        # predictions.correct (computed from the fresh label). DO UPDATE rewrites
+        # the row in place, so it can't trip the predictions foreign key the way
+        # INSERT OR REPLACE (delete + reinsert) would.
         con.executemany(
-            "INSERT OR IGNORE INTO cases(case_id, axis, expected_tier) VALUES (?, ?, ?)",
+            "INSERT INTO cases(case_id, axis, expected_tier) VALUES (?, ?, ?) "
+            "ON CONFLICT(case_id) DO UPDATE SET axis=excluded.axis, expected_tier=excluded.expected_tier",
             [(c["id"], c.get("axis", "?"), c["expected_tier"]) for c in cases],
         )
         cur = con.execute(

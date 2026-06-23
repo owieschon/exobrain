@@ -36,8 +36,9 @@ database, no app. Git is the store and the audit trail.
   Every model call is recorded via `common.trace_llm_call`, called at each of the
   two API call sites (`call_anthropic` and `consolidate._post`).
 - **Runtime state is written atomically** (`.tmp` then `os.replace`) and is
-  gitignored (`ingest-state.json`, `pending-*.txt`, `tools/staged/*`,
-  `distilled-sessions.json`). Never commit runtime state or `.pyc`.
+  gitignored (`tools/ingest-state.json`, `tools/pending-ingest.txt`,
+  `pending-reconciliation.txt`, `tools/staged/*`, `distilled-sessions.json`,
+  `tools/llm-trace.jsonl`). Never commit runtime state or `.pyc`.
 - **Capture/draft files use the exact markdown shape `auto_ingest.parse_draft`
   expects** (`# title`, `**Why it matters:**`, `**Suggested domain:**`,
   `## Lesson` + blank line). A new producer must match it or parsing breaks.

@@ -91,6 +91,15 @@ def get_domain_for_page(page_path: Path) -> Optional[str]:
     for domain, domain_path in DOMAINS.items():
         if resolved.is_relative_to(domain_path.resolve()):
             return domain
+    # A staged proposal lives under tools/staged/ (outside any domain), but its
+    # filename is namespaced "{domain}__{slug}.md" (auto_ingest.slug_from_draft),
+    # so `--delta` can still lint it against the right domain before promotion —
+    # which is exactly what the README's promote-time check does.
+    stem = page_path.stem
+    if "__" in stem:
+        candidate = stem.split("__", 1)[0]
+        if candidate in DOMAINS:
+            return candidate
     return None
 
 
@@ -195,9 +204,12 @@ def page_has_see_also(text: str) -> bool:
 def stage_contradictions(scope: str, mode: str = "full") -> dict:
     """Check for contradictions between wiki pages.
 
-    JUDGMENT stage. Reuses auto_ingest.py's coverage/signal analysis:
-    token coverage, negation signals, supersede signals, small-model escalation.
-    Synthesis pages are excluded as comparison sources (they aggregate
+    JUDGMENT stage. Reuses auto_ingest.py's coverage/signal *primitives* (token
+    coverage, negation/supersede signal lists, the small-model check) — not its
+    branch structure: this stage re-implements the same signal sequence with
+    page-calibrated thresholds (pages share more vocabulary than drafts). See
+    auto_ingest.check_contradiction for why the three sites are intentionally
+    separate. Synthesis pages are excluded as comparison sources (they aggregate
     content from many pages and would generate false positives).
 
     Full mode: compares all non-synthesis page pairs within a domain.
