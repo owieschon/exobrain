@@ -23,6 +23,7 @@ Usage:
     python3 auto_ingest.py --verbose    # extra logging
 """
 
+import hashlib
 import json
 import os
 import re
@@ -145,7 +146,11 @@ def parse_draft(path: Path) -> dict:
     if turn_match:
         result["source_turn"] = turn_match.group(1).strip()
 
-    lesson_match = re.search(r"## Lesson\s*\n\s*\n(.*)", text, re.DOTALL)
+    # Tolerate a missing blank line after the heading: the in-tree producer
+    # writes "## Lesson\n\n<body>", but a hand-dropped draft may write
+    # "## Lesson\n<body>". Either should parse, so the lesson isn't silently
+    # empty (which would mis-tier the draft as GREEN).
+    lesson_match = re.search(r"## Lesson[ \t]*\n+(.*)", text, re.DOTALL)
     if lesson_match:
         result["lesson"] = lesson_match.group(1).strip()
 
@@ -559,8 +564,28 @@ def save_state(state: dict):
 # ---------------------------------------------------------------------------
 
 def slug_from_draft(draft: dict) -> str:
-    """Generate a kebab-case filename slug from the draft cluster name."""
-    return re.sub(r"[^a-z0-9]+", "-", draft["cluster"].lower()).strip("-")[:60]
+    """A kebab-case staged-file slug, namespaced by domain so the same cluster
+    title in two domains doesn't collide, with a content-hash fallback when the
+    title has no slug-able characters (e.g. a CJK or emoji-only title, which
+    would otherwise slug to '' and write a hidden, reviewer-invisible file)."""
+    base = re.sub(r"[^a-z0-9]+", "-", draft["cluster"].lower()).strip("-")[:60]
+    if not base:
+        base = "untitled-" + hashlib.sha1(draft["cluster"].encode("utf-8")).hexdigest()[:8]
+    domain = re.sub(r"[^a-z0-9]+", "-", draft.get("domain", "").lower()).strip("-")
+    return f"{domain}__{base}" if domain else base
+
+
+def _unique_stem(slug: str, ext: str) -> str:
+    """A staged-file stem that doesn't collide with an existing file of this
+    extension, so a second draft never silently overwrites an earlier staged
+    proposal a reviewer hasn't seen yet. Suffixes -2, -3, ... on collision."""
+    STAGED_DIR.mkdir(parents=True, exist_ok=True)
+    if not (STAGED_DIR / f"{slug}{ext}").exists():
+        return slug
+    n = 2
+    while (STAGED_DIR / f"{slug}-{n}{ext}").exists():
+        n += 1
+    return f"{slug}-{n}"
 
 
 def find_related_pages(draft: dict, domain: str, top_n: int = 3) -> list[str]:
@@ -639,10 +664,11 @@ def route_staging(
         return STAGED_DIR / f"{slug}.md"
 
     STAGED_DIR.mkdir(parents=True, exist_ok=True)
+    stem = _unique_stem(slug, ".md")  # never clobber an unreviewed proposal
 
     # Proposed wiki page
     page_content = generate_proposed_page(draft)
-    page_path = STAGED_DIR / f"{slug}.md"
+    page_path = STAGED_DIR / f"{stem}.md"
     page_path.write_text(page_content)
 
     # Companion metadata
@@ -659,7 +685,7 @@ def route_staging(
     if "overlapping_page" in details:
         meta["overlapping_page"] = details["overlapping_page"]
 
-    meta_path = STAGED_DIR / f"{slug}.meta"
+    meta_path = STAGED_DIR / f"{stem}.meta"
     with open(meta_path, "w") as f:
         json.dump(meta, f, indent=2)
 
@@ -731,7 +757,7 @@ def route_red(
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
-    decision_path = STAGED_DIR / f"{slug}.decision"
+    decision_path = STAGED_DIR / f"{_unique_stem(slug, '.decision')}.decision"
     with open(decision_path, "w") as f:
         json.dump(decision, f, indent=2)
 
