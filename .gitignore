@@ -19,6 +19,8 @@ distilled-sessions.json
 pending-reconciliation.txt
 tools/ingest-state.json
 tools/pending-ingest.txt
+# local LLM-call trace (EXOBRAIN_TRACE), diagnostics not knowledge
+tools/llm-trace.jsonl
 # transient ingest proposals awaiting human review
 tools/staged/*
 !tools/staged/.gitkeep
